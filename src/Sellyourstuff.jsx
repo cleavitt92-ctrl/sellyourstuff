@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 
-const SYSTEM_PROMPT = `You are Sellyourstuff, an expert resale AI that helps people photograph household items, antiques, collectibles, and furniture — then turns those photos into ready-to-post listings.
+const SYSTEM_PROMPT = `You are JunkGenius, an expert resale AI that helps people photograph household items, antiques, collectibles, and furniture — then turns those photos into ready-to-post listings.
 
 ALWAYS respond in valid JSON only. No markdown fences, no text outside the JSON object.
 
@@ -200,6 +200,9 @@ export default function SellYourStuff() {
   const [copied, setCopied] = useState(false);
   const [postInstructions, setPostInstructions] = useState(null);
   const [savedListings, setSavedListings] = useState([]);
+  const [listingsUsed, setListingsUsed] = useState(0);
+  const [credits, setCredits] = useState(3); // 3 free to start
+  const FREE_LISTINGS = 3;
   const fileInputRef = useRef(null);
   const historyRef = useRef([]);
   const dragRef = useRef(null);
@@ -328,6 +331,22 @@ export default function SellYourStuff() {
         { id: Math.random(), result, thumbUrl: currentThumbRef.current },
         ...prev,
       ]);
+      const newUsed = listingsUsed + 1;
+      setListingsUsed(newUsed);
+      const newCredits = credits - 1;
+      setCredits(newCredits);
+      if (newCredits <= 0) {
+        setPhase("paywall");
+        setPhotos([]);
+        setChatMessages([]);
+        setInputText("");
+        setResult(null);
+        setError(null);
+        setPostInstructions(null);
+        historyRef.current = [];
+        currentThumbRef.current = null;
+        return;
+      }
     }
     setPhase("upload");
     setPhotos([]);
@@ -338,6 +357,17 @@ export default function SellYourStuff() {
     setPostInstructions(null);
     historyRef.current = [];
     currentThumbRef.current = null;
+  };
+
+  // Fake unlock for testing — will be replaced with Stripe later
+  const unlockPack = () => {
+    setCredits(5);
+    setPhase("upload");
+  };
+
+  const unlockMonthly = () => {
+    setCredits(9999);
+    setPhase("upload");
   };
 
   const getListingText = () =>
@@ -452,6 +482,30 @@ export default function SellYourStuff() {
         .conf-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle}
         .conf-high{background:#4caf50}.conf-medium{background:#ff9800}.conf-low{background:#f44336}
         .err{background:#fdecea;border:1.5px solid #f5c6cb;color:#721c24;border-radius:10px;padding:.7rem .95rem;font-size:.88rem;margin-top:.85rem}
+        /* ── PAYWALL ── */
+        .paywall-card{background:#fffaf6;border-radius:22px;border:1.5px solid #e8d5c4;box-shadow:0 4px 28px rgba(140,70,30,.09);max-width:640px;margin:0 auto 2rem;padding:2rem 1.75rem;animation:fadeUp .35s ease both;text-align:center}
+        .paywall-icon{font-size:3rem;margin-bottom:.75rem}
+        .paywall-title{font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:900;color:#2c1810;margin-bottom:.4rem}
+        .paywall-sub{font-size:.95rem;color:#8b5a3c;margin-bottom:2rem;line-height:1.5}
+        .paywall-options{display:flex;flex-direction:column;gap:.85rem;margin-bottom:1.25rem}
+        .paywall-option{border-radius:16px;padding:1.25rem 1.5rem;cursor:pointer;transition:all .2s;text-align:left;border:2px solid transparent;position:relative}
+        .paywall-option-pack{background:#fff;border-color:#e8d5c4}
+        .paywall-option-pack:hover{border-color:#c4622d;transform:translateY(-1px)}
+        .paywall-option-monthly{background:linear-gradient(135deg,#2c1810,#4a2a1c);color:#fff}
+        .paywall-option-monthly:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(44,24,16,.25)}
+        .paywall-popular{position:absolute;top:-11px;right:1rem;background:#c4622d;color:#fff;font-size:.72rem;font-weight:700;padding:.2rem .7rem;border-radius:20px;letter-spacing:.05em}
+        .paywall-option-title{font-size:1.05rem;font-weight:700;margin-bottom:.2rem}
+        .paywall-option-desc{font-size:.85rem;opacity:.8;margin-bottom:.65rem}
+        .paywall-option-price{font-family:'Playfair Display',serif;font-size:1.75rem;font-weight:900}
+        .paywall-option-price span{font-size:.85rem;font-weight:400;font-family:'DM Sans',sans-serif;opacity:.7}
+        .paywall-option-pack .paywall-option-title{color:#2c1810}
+        .paywall-option-pack .paywall-option-desc{color:#8b5a3c}
+        .paywall-option-pack .paywall-option-price{color:#c4622d}
+        .paywall-ppu{font-size:.78rem;color:#a07050;margin-top:.15rem}
+        .paywall-note{font-size:.8rem;color:#a07050}
+
+        .credits-badge{display:inline-flex;align-items:center;gap:.35rem;background:#fdf0e5;border:1px solid #e8d5c4;border-radius:20px;padding:.25rem .75rem;font-size:.8rem;color:#8b5a3c;font-weight:500;margin-bottom:1rem}
+
         .my-listings-header{display:flex;align-items:center;justify-content:space-between;max-width:640px;margin:0 auto 1rem;padding:0 .25rem}
         .my-listings-title{font-family:'Playfair Display',serif;font-size:1.25rem;font-weight:700;color:#2c1810}
         .my-listings-count{background:#c4622d;color:#fff;border-radius:20px;padding:.2rem .65rem;font-size:.8rem;font-weight:600}
@@ -479,6 +533,13 @@ export default function SellYourStuff() {
 
           {phase === "upload" && (
             <div className="card">
+              {credits <= 3 && credits > 0 && (
+                <div style={{ textAlign: "center" }}>
+                  <div className="credits-badge">
+                    {credits === 3 ? "3 free listings remaining" : credits === 2 ? "2 free listings remaining" : "1 free listing remaining"}
+                  </div>
+                </div>
+              )}
               <div className="drop-zone" ref={dragRef} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} onClick={() => fileInputRef.current?.click()}>
                 <span className="drop-icon">📷</span>
                 <div className="drop-text">Tap or drag to add photos</div>
@@ -500,6 +561,29 @@ export default function SellYourStuff() {
               )}
               {error && <div className="err">{error}</div>}
               <button className="btn-primary" disabled={!photos.length || loading} onClick={analyze}>Analyze and Price It</button>
+            </div>
+          )}
+
+          {phase === "paywall" && (
+            <div className="paywall-card">
+              <div className="paywall-icon">🎉</div>
+              <div className="paywall-title">You're on a roll!</div>
+              <div className="paywall-sub">You've used your 3 free listings. Keep going — you're doing great.</div>
+              <div className="paywall-options">
+                <div className="paywall-option paywall-option-pack" onClick={unlockPack}>
+                  <div className="paywall-option-title">5 More Listings</div>
+                  <div className="paywall-option-desc">Perfect if you just have a few more things to sell</div>
+                  <div className="paywall-option-price">$4.99 <span>one time</span></div>
+                  <div className="paywall-ppu">about $1 per listing</div>
+                </div>
+                <div className="paywall-option paywall-option-monthly" onClick={unlockMonthly}>
+                  <div className="paywall-popular">MOST POPULAR</div>
+                  <div className="paywall-option-title">Unlimited Listings</div>
+                  <div className="paywall-option-desc">Best value if you have a lot to sell</div>
+                  <div className="paywall-option-price">$9.99 <span>/ month</span></div>
+                </div>
+              </div>
+              <div className="paywall-note">Cancel anytime · Secure payment via Stripe</div>
             </div>
           )}
 
