@@ -1,10 +1,10 @@
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
-  const key = process.env.ANTHROPIC_API_KEY;
+  const key = process.env.CLAUDE_API_KEY;
 
   if (!key) {
-    return res.status(500).json({ error: "API key not found in environment" });
+    return res.status(500).json({ error: "API key not found", env: Object.keys(process.env).join(",") });
   }
 
   try {
