@@ -227,14 +227,10 @@ export default function SellYourStuff() {
   };
 
   const callClaude = async (messages) => {
-    const API_KEY = "YOUR_API_KEY_HERE";
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch("/api/claude", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": API_KEY,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true",
       },
       body: JSON.stringify({
         model: "claude-opus-4-5",
