@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 
-const SYSTEM_PROMPT = `You are JunkGenius, an expert resale AI that helps people photograph household items, antiques, collectibles, and furniture — then turns those photos into ready-to-post listings.
+const SYSTEM_PROMPT = `You are Sellyourstuff, an expert resale AI that helps people photograph household items, antiques, collectibles, and furniture — then turns those photos into ready-to-post listings.
 
 ALWAYS respond in valid JSON only. No markdown fences, no text outside the JSON object.
 
