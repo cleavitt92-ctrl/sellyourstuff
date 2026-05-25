@@ -123,6 +123,7 @@ function MainApp() {
   const [savedListings, setSavedListings] = useState([]);
   const [credits, setCredits] = useState(3);
   const [stripeLoading, setStripeLoading] = useState(false);
+  const [heroVisible, setHeroVisible] = useState(true);
   const fileInputRef = useRef(null);
   const historyRef = useRef([]);
   const dragRef = useRef(null);
@@ -150,6 +151,7 @@ function MainApp() {
 
   const analyze = async () => {
     if (!photos.length) return;
+    setHeroVisible(false);
     setLoading(true); setError(null); setPhase("analyzing");
     currentThumbRef.current = photos[0]?.url || null;
     try {
@@ -227,12 +229,35 @@ function MainApp() {
         </div>
       </nav>
 
+      {/* ── HERO ── */}
+      {heroVisible && (
+      <div className="hero">
+        <div className="hero-inner">
+          <div className="hero-text">
+            <h1 className="hero-title">Selling your stuff online just got a lot easier.</h1>
+            <p className="hero-desc">
+              Take a few photos of anything — furniture, collectibles, electronics, clothes, sports gear — and SellYourStuff.ai figures out what it's worth, writes a ready-to-post listing, and tells you exactly where to sell it. eBay, Facebook Marketplace, Craigslist, Etsy — we pick the right one for you.
+            </p>
+            <p className="hero-desc">
+              Perfect for a garage sale, a house move, or just clearing out years of stuff. List 25 things in the time it used to take to list one.
+            </p>
+            <div className="hero-badges">
+              <span className="hero-badge">📷 Just upload photos</span>
+              <span className="hero-badge">💰 AI pricing</span>
+              <span className="hero-badge">📋 Ready-to-post listings</span>
+              <span className="hero-badge">🎯 Best platform picked for you</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      )}
+
       <div className="main-layout">
         {/* ── LEFT: Analysis panel ── */}
         <div className="left-panel">
           <div className="panel-header">
             <h1 className="panel-title">What are you selling?</h1>
-            <p className="panel-sub">Upload photos — we'll identify it, price it, and write the listing.</p>
+            <p className="panel-sub">Upload up to 6 photos — we'll price it, write the listing, and tell you where to post it.</p>
             {credits <= 3 && credits > 0 && (
               <div className="credits-badge">{credits} free listing{credits !== 1 ? "s" : ""} remaining</div>
             )}
