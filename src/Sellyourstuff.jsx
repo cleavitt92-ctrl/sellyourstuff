@@ -236,10 +236,10 @@ function MainApp() {
           <div className="hero-text">
             <h1 className="hero-title">Selling your stuff online just got a lot easier.</h1>
             <p className="hero-desc">
-              Take a few photos of anything — furniture, collectibles, electronics, clothes, sports gear — and SellYourStuff.ai figures out what it's worth, writes a ready-to-post listing, and tells you exactly where to sell it. eBay, Facebook Marketplace, Craigslist, Etsy — we pick the right one for you.
+              Take a few photos of your stuff: furniture, collectibles, electronics, clothes, sports gear, etc. and SellYourStuff.ai figures out what it's worth, writes a ready-to-post listing, and tells you exactly where to sell it. eBay, Facebook Marketplace, Craigslist, Etsy; we pick the right one for you.
             </p>
             <p className="hero-desc">
-              Perfect for a garage sale, a house move, or just clearing out years of stuff. List 25 things in the time it used to take to list one.
+              Perfect for a garage sale, a house move, or just clearing out years of stuff. List 25 things in the time it used to take to list one!
             </p>
             <div className="hero-badges">
               <span className="hero-badge">📷 Just upload photos</span>
