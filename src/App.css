@@ -280,3 +280,13 @@ body { background: #f4f7f5; font-family: 'Inter', system-ui, sans-serif; color: 
 .coach-send:hover:not(:disabled) { background: #155e39; }
 .coach-send:disabled { opacity: .38; cursor: not-allowed; }
 @media (max-width: 768px) { .coach-panel { width: calc(100vw - 2rem); right: 1rem; } }
+
+/* ── AUTH MODAL EXTRAS ── */
+.modal-input { width: 100%; padding: .8rem 1rem; border: 1.5px solid #dde8e2; border-radius: 10px; font-family: 'Inter',sans-serif; font-size: .93rem; color: #1a2e22; outline: none; margin-bottom: .6rem; transition: border .2s; }
+.modal-input:focus { border-color: #1a7a4a; }
+.modal-divider { display: flex; align-items: center; gap: .75rem; margin: .85rem 0; color: #5a7a66; font-size: .82rem; }
+.modal-divider::before, .modal-divider::after { content: ""; flex: 1; height: 1px; background: #dde8e2; }
+.modal-error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; border-radius: 8px; padding: .5rem .85rem; font-size: .83rem; margin-bottom: .5rem; }
+.modal-message { background: #f0f9f4; border: 1px solid #b8ddc8; color: #1a7a4a; border-radius: 8px; padding: .75rem 1rem; font-size: .9rem; text-align: center; }
+.modal-switch { font-size: .82rem; color: #5a7a66; margin-top: .85rem; }
+.modal-switch button { background: none; border: none; color: #1a7a4a; font-weight: 600; cursor: pointer; font-size: .82rem; text-decoration: underline; }
