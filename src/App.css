@@ -185,3 +185,47 @@ body { background: #f4f7f5; font-family: 'Inter', system-ui, sans-serif; color: 
 .post-body { color: #2a4a35; }
 .post-p { font-size: .97rem; line-height: 1.8; margin-bottom: 1.25rem; }
 .post-h2 { font-size: 1.1rem; font-weight: 700; color: #1a2e22; margin: 1.75rem 0 .5rem; }
+
+/* ── INTERVIEW ── */
+.interview-card { text-align: center; }
+.interview-progress { display: flex; justify-content: center; gap: .5rem; margin-bottom: 1.5rem; }
+.interview-dot { width: 8px; height: 8px; border-radius: 50%; background: #dde8e2; transition: background .2s; }
+.interview-dot.active { background: #1a7a4a; }
+.interview-q { font-size: 1.1rem; font-weight: 700; color: #1a2e22; margin-bottom: 1.25rem; }
+.interview-options { display: flex; flex-direction: column; gap: .65rem; margin-bottom: 1rem; }
+.interview-option { background: #f8fbf9; border: 1.5px solid #dde8e2; border-radius: 12px; padding: 1rem 1.25rem; cursor: pointer; text-align: left; transition: all .2s; }
+.interview-option:hover { border-color: #1a7a4a; background: #f0f9f4; transform: translateY(-1px); }
+.interview-option-label { font-size: .97rem; font-weight: 600; color: #1a2e22; margin-bottom: .15rem; }
+.interview-option-sub { font-size: .82rem; color: #5a7a66; }
+.interview-skip { text-align: center; }
+.interview-skip-btn { background: none; border: none; font-size: .82rem; color: #5a7a66; cursor: pointer; text-decoration: underline; }
+.interview-skip-btn:hover { color: #1a7a4a; }
+
+/* ── BUCKET BADGE ── */
+.bucket-badge { display: inline-flex; align-items: center; gap: .3rem; padding: .3rem .8rem; border-radius: 20px; font-size: .8rem; font-weight: 600; color: #fff; margin-bottom: .5rem; margin-right: .4rem; }
+
+/* ── OFFERUP BUTTON ── */
+.btn-post-offerup { background: #6bbd5b; color: #fff; }
+.btn-post-offerup:hover { background: #56a348; transform: translateY(-1px); }
+
+/* ── 20-PACK PAYWALL OPTION ── */
+.paywall-option-20pack { background: linear-gradient(135deg, #1a7a4a, #155e39); color: #fff; }
+.paywall-option-20pack:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(26,122,74,.3); }
+.paywall-tip { font-size: .85rem; color: #5a7a66; margin-bottom: 1.25rem; font-style: italic; }
+
+/* ── SESSION SUMMARY ── */
+.summary-card { background: #fff; border-radius: 16px; border: 1px solid #dde8e2; padding: 1.5rem; animation: fadeUp .3s ease both; }
+.summary-header { text-align: center; margin-bottom: 1.5rem; }
+.summary-icon { font-size: 2.5rem; margin-bottom: .5rem; }
+.summary-title { font-size: 1.4rem; font-weight: 800; color: #1a2e22; margin-bottom: .3rem; }
+.summary-sub { font-size: .88rem; color: #5a7a66; }
+.summary-bucket { margin-bottom: 1rem; border-radius: 12px; overflow: hidden; border: 1px solid #dde8e2; }
+.summary-bucket-header { display: flex; justify-content: space-between; padding: .6rem 1rem; color: #fff; font-size: .85rem; font-weight: 600; }
+.summary-bucket-items { list-style: none; padding: .5rem 0; }
+.summary-item { display: flex; justify-content: space-between; align-items: center; padding: .45rem 1rem; font-size: .88rem; border-bottom: 1px solid #f0f5f2; }
+.summary-item:last-child { border-bottom: none; }
+.summary-item-name { color: #1a2e22; font-weight: 500; }
+.summary-item-price { color: #1a7a4a; font-weight: 700; }
+.summary-cta { text-align: center; margin-top: 1.5rem; }
+.summary-tip { font-size: .85rem; color: #5a7a66; margin-bottom: 1rem; font-style: italic; }
+.btn-summary { border-color: #1a7a4a; color: #1a7a4a; }
