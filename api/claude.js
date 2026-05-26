@@ -5,6 +5,14 @@ export default async function handler(req, res) {
   if (!key) return res.status(500).json({ error: "API key not found" });
 
   try {
+    const bodyStr = JSON.stringify(req.body);
+    const bodySizeKB = Math.round(Buffer.byteLength(bodyStr, 'utf8') / 1024);
+    console.log(`Request body size: ${bodySizeKB}KB`);
+
+    if (!req.body || !req.body.messages) {
+      return res.status(400).json({ error: "Invalid request body", received: Object.keys(req.body || {}) });
+    }
+
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -12,14 +20,14 @@ export default async function handler(req, res) {
         "x-api-key": key,
         "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify(req.body),
+      body: bodyStr,
     });
 
     const data = await response.json();
     res.status(response.status).json(data);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    console.error("Handler error:", err.message);
+    res.status(500).json({ error: err.message, stack: err.stack?.split('\n')[0] });
   }
 }
 
