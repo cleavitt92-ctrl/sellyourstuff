@@ -196,6 +196,8 @@ const SAMPLE_LISTINGS = [
     }
   },
 ];
+
+const bucketLabels = {
   donate: { label: "Donate", color: "#94a3b8", icon: "🤝" },
   bundle: { label: "Bundle / Garage Sale", color: "#f59e0b", icon: "📦" },
   local: { label: "Sell Locally", color: "#1877f2", icon: "📍" },
