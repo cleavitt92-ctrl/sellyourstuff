@@ -229,3 +229,54 @@ body { background: #f4f7f5; font-family: 'Inter', system-ui, sans-serif; color: 
 .summary-cta { text-align: center; margin-top: 1.5rem; }
 .summary-tip { font-size: .85rem; color: #5a7a66; margin-bottom: 1rem; font-style: italic; }
 .btn-summary { border-color: #1a7a4a; color: #1a7a4a; }
+
+/* ── AUTH MODAL ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
+.modal-card { background: #fff; border-radius: 20px; padding: 2.5rem 2rem; max-width: 420px; width: 100%; text-align: center; position: relative; animation: fadeUp .3s ease both; }
+.modal-close { position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #5a7a66; line-height: 1; }
+.modal-icon { font-size: 2.5rem; margin-bottom: .75rem; }
+.modal-title { font-size: 1.4rem; font-weight: 800; color: #1a2e22; margin-bottom: .5rem; }
+.modal-sub { font-size: .9rem; color: #5a7a66; line-height: 1.6; margin-bottom: 1.75rem; }
+.btn-google { display: flex; align-items: center; justify-content: center; gap: .65rem; width: 100%; padding: .95rem; background: #fff; border: 1.5px solid #dde8e2; border-radius: 12px; font-family: 'Inter',sans-serif; font-size: .97rem; font-weight: 600; cursor: pointer; transition: all .2s; color: #1a2e22; margin-bottom: .75rem; }
+.btn-google:hover { border-color: #1a7a4a; background: #f8fbf9; }
+.modal-note { font-size: .78rem; color: #5a7a66; }
+
+/* ── NAV USER ── */
+.nav-user { display: flex; align-items: center; gap: .65rem; }
+.nav-email { font-size: .83rem; color: #5a7a66; font-weight: 500; }
+.nav-signout { background: none; border: 1px solid #dde8e2; border-radius: 8px; padding: .3rem .75rem; font-size: .82rem; color: #5a7a66; cursor: pointer; transition: all .2s; font-family: 'Inter',sans-serif; }
+.nav-signout:hover { border-color: #1a7a4a; color: #1a7a4a; }
+.nav-signin { background: #1a7a4a; color: #fff; border: none; border-radius: 8px; padding: .4rem .9rem; font-size: .85rem; font-weight: 600; cursor: pointer; transition: background .2s; font-family: 'Inter',sans-serif; }
+.nav-signin:hover { background: #155e39; }
+
+/* ── HERO SUBHEAD ── */
+.hero-subhead { font-size: 1.1rem; font-weight: 600; opacity: .95; margin-bottom: .75rem; max-width: 600px; }
+
+/* ── LISTING BLUR GATE ── */
+.listing-blur-wrap { position: relative; height: 60px; margin-top: -.5rem; }
+.listing-blur { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent, #fff); border-radius: 0 0 12px 12px; }
+.listing-unlock-btn { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); white-space: nowrap; background: #1a7a4a; color: #fff; border: none; border-radius: 20px; padding: .45rem 1.25rem; font-size: .83rem; font-weight: 600; cursor: pointer; font-family: 'Inter',sans-serif; transition: background .2s; }
+.listing-unlock-btn:hover { background: #155e39; }
+
+/* ── OLX BUTTON ── */
+.btn-post-olx { background: #6e2fff; color: #fff; }
+.btn-post-olx:hover { background: #5820cc; transform: translateY(-1px); }
+
+/* ── SELLING COACH ── */
+.coach-fab { position: fixed; bottom: 2rem; right: 2rem; background: #1a7a4a; color: #fff; border: none; border-radius: 25px; padding: .75rem 1.25rem; font-size: .9rem; font-weight: 600; cursor: pointer; box-shadow: 0 4px 20px rgba(26,122,74,.35); transition: all .2s; font-family: 'Inter',sans-serif; z-index: 500; }
+.coach-fab:hover { background: #155e39; transform: translateY(-2px); }
+.coach-panel { position: fixed; bottom: 5.5rem; right: 2rem; width: 340px; background: #fff; border-radius: 16px; border: 1px solid #dde8e2; box-shadow: 0 8px 32px rgba(26,122,74,.15); z-index: 500; display: flex; flex-direction: column; max-height: 460px; animation: fadeUp .25s ease both; }
+.coach-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid #e8f0ec; }
+.coach-title { font-size: .97rem; font-weight: 700; color: #1a2e22; }
+.coach-close { background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #5a7a66; line-height: 1; }
+.coach-messages { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: .65rem; }
+.coach-bubble { padding: .75rem 1rem; border-radius: 12px; font-size: .87rem; line-height: 1.6; max-width: 90%; }
+.coach-bubble.ai { background: #f0f9f4; border: 1px solid #dde8e2; }
+.coach-bubble.me { background: #1a7a4a; color: #fff; margin-left: auto; }
+.coach-input-row { display: flex; gap: .5rem; padding: .75rem 1rem; border-top: 1px solid #e8f0ec; }
+.coach-input { flex: 1; padding: .65rem .9rem; border: 1.5px solid #dde8e2; border-radius: 10px; font-size: .87rem; font-family: 'Inter',sans-serif; outline: none; }
+.coach-input:focus { border-color: #1a7a4a; }
+.coach-send { background: #1a7a4a; color: #fff; border: none; border-radius: 10px; padding: .65rem .9rem; font-size: 1rem; cursor: pointer; transition: background .2s; }
+.coach-send:hover:not(:disabled) { background: #155e39; }
+.coach-send:disabled { opacity: .38; cursor: not-allowed; }
+@media (max-width: 768px) { .coach-panel { width: calc(100vw - 2rem); right: 1rem; } }

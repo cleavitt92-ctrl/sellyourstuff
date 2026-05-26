@@ -1,47 +1,52 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { supabase } from "./supabase";
 import Blog from "./Blog";
 
-const buildSystemPrompt = (sellerContext) => `You are SellYourStuff.ai, an expert resale AI that helps people sell household items online.
+const buildSystemPrompt = (sellerContext) => `You are SellYourStuff.ai, an expert resale AI that helps people sell household items.
 
 ALWAYS respond in valid JSON only. No markdown fences, no text outside the JSON object.
 
 SELLER CONTEXT:
-- Urgency: ${sellerContext.urgency || "unknown"} (this_week / within_a_month / no_rush)
-- Logistics: ${sellerContext.logistics || "unknown"} (local_only / can_ship / both)
-- Effort: ${sellerContext.effort || "unknown"} (minimal / moderate / happy_to_invest)
+- Urgency: ${sellerContext.urgency || "within_a_month"}
+- Logistics: ${sellerContext.logistics || "both"}
+- Effort: ${sellerContext.effort || "moderate"}
 
 BUCKET SORTING — assign every item to one of these:
-1. "donate" — not worth the effort to list, value under $5 or too common
-2. "bundle" — worth including in a garage sale or lot listing, $5-15
-3. "local" — Facebook Marketplace or Craigslist, bulky or low shipping value
-4. "specialist" — eBay, Etsy, or specialist platform, collector value or ships easily
-5. "appraise" — potentially high value, do not price yet, get expert appraisal first
+1. "donate" — not worth listing, value under $5
+2. "bundle" — garage sale or lot listing, $5-15
+3. "local" — Facebook Marketplace, Craigslist, OfferUp
+4. "specialist" — eBay, Etsy, specialist platform
+5. "appraise" — potentially high value, get expert appraisal first
 
 URGENCY MODIFIERS:
-- this_week: prioritize local platforms, price 20% below market to move fast
-- within_a_month: balanced approach, fair market pricing
-- no_rush: maximize value, specialist platforms, patient pricing
+- this_week: local platforms, price 20% below market
+- within_a_month: balanced, fair market pricing
+- no_rush: maximize value, specialist platforms
 
 EFFORT MODIFIERS:
-- minimal: skip questions, go straight to listing, suggest bundle/local
-- moderate: ask one follow-up if it meaningfully changes the recommendation
-- happy_to_invest: ask up to two follow-ups, optimize for best possible outcome
+- minimal: skip questions, suggest bundle/local
+- moderate: ask one follow-up if it changes the recommendation
+- happy_to_invest: ask up to two follow-ups, optimize for best outcome
+
+GARAGE SALE LOGIC:
+If the item is clearly low-value household goods (cleaning supplies, basic kitchenware, common tools, generic decor), assign bucket "bundle" and suggest garage sale over individual listing.
 
 Platform selection:
 - eBay: collectibles, branded electronics, niche items, ships easily
 - Facebook Marketplace: furniture, bulky items, local pickup
-- Craigslist: furniture, appliances, bulk lots, local
-- OfferUp: casual secondhand, mobile sellers, everyday items
-- Etsy: vintage 20+ years, retro decor, handmade
-- Specialized: rare coins, stamps, vintage watches, sports cards
+- Craigslist: furniture, appliances, bulk lots
+- OfferUp: casual secondhand, everyday items
+- OLX: international local selling
+- Etsy: vintage 20+ years, retro decor
+- Specialized: rare coins, stamps, watches, sports cards
 
-JSON format when asking a follow-up question:
+JSON format when asking a follow-up:
 {
   "type": "question",
-  "seen": "brief description of what you observe",
-  "question": "your targeted question",
-  "why": "one sentence on why this changes the recommendation"
+  "seen": "brief description",
+  "question": "your question",
+  "why": "one sentence why this changes the recommendation"
 }
 
 JSON format for listing:
@@ -51,9 +56,9 @@ JSON format for listing:
   "bucket": "donate|bundle|local|specialist|appraise",
   "estimatedValue": { "low": 0, "high": 0 },
   "confidence": "low|medium|high",
-  "platform": "eBay|Facebook Marketplace|Craigslist|OfferUp|Etsy|Specialized|Donate",
+  "platform": "eBay|Facebook Marketplace|Craigslist|OfferUp|OLX|Etsy|Specialized|Donate",
   "platformName": "display name",
-  "platformReason": "brief explanation tailored to seller urgency and logistics",
+  "platformReason": "brief explanation tailored to seller context",
   "askingPrice": 0,
   "title": "SEO-optimized listing title under 80 chars",
   "description": "complete ready-to-post listing description",
@@ -61,15 +66,15 @@ JSON format for listing:
   "diamondAlert": null
 }
 
-For donate/bundle buckets, set askingPrice to 0 and title/description accordingly.
-For appraise bucket, set askingPrice to 0 and explain why in platformReason.
-Be accurate with valuations. Tailor every recommendation to the seller context above.`;
+For diamondAlert: if this might be significantly more valuable than it appears, explain why. Otherwise null.
+Be accurate with valuations. Tailor every recommendation to seller context.`;
 
 const platformColors = {
   eBay: "#e53238",
   "Facebook Marketplace": "#1877f2",
   Craigslist: "#444",
   OfferUp: "#6bbd5b",
+  OLX: "#6e2fff",
   Etsy: "#f1641e",
   Specialized: "#7c5cbf",
   Donate: "#94a3b8",
@@ -83,8 +88,130 @@ const bucketLabels = {
   appraise: { label: "Get Appraised First", color: "#7c5cbf", icon: "🔍" },
 };
 
+// ── Auth modal ─────────────────────────────────────────────────────────────
+function AuthModal({ onClose, onLogin }) {
+  const [loading, setLoading] = useState(false);
+
+  const signInWithGoogle = async () => {
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) { alert("Sign in failed. Please try again."); setLoading(false); }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card" onClick={e => e.stopPropagation()}>
+        <button className="modal-close" onClick={onClose}>×</button>
+        <div className="modal-icon">💎</div>
+        <h2 className="modal-title">Unlock your full listing</h2>
+        <p className="modal-sub">Sign in free to see the complete listing, copy it, and post it directly to eBay, Facebook Marketplace, and more. Your listings are saved to your account.</p>
+        <button className="btn-google" onClick={signInWithGoogle} disabled={loading}>
+          <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/><path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.04a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/><path fill="#FBBC05" d="M4.5 10.48A4.8 4.8 0 0 1 4.5 7.5V5.43H1.83a8 8 0 0 0 0 7.14z"/><path fill="#EA4335" d="M8.98 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.59A8 8 0 0 0 1.83 5.43L4.5 7.5c.66-1.97 2.52-3.92 4.48-3.92z"/></svg>
+          {loading ? "Signing in..." : "Sign in with Google"}
+        </button>
+        <p className="modal-note">Free forever · No credit card needed</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Selling Coach ──────────────────────────────────────────────────────────
+function SellingCoach({ listings, sellerContext }) {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const getCoachAdvice = async (userMessage) => {
+    setLoading(true);
+    const listingSummary = listings.map(l =>
+      `${l.result.itemName}: $${l.result.askingPrice}, ${l.result.bucket}, ${l.result.platform}`
+    ).join("\n");
+
+    const systemPrompt = `You are a selling coach helping someone sell their stuff. 
+    
+Seller context: urgency=${sellerContext.urgency}, logistics=${sellerContext.logistics}, effort=${sellerContext.effort}
+
+Their current listings:
+${listingSummary}
+
+Give concise, practical advice. Prioritize items by ROI and effort. Tell them what to focus on first and what to deprioritize. Keep responses under 150 words. Be direct and encouraging.`;
+
+    try {
+      const response = await fetch("/api/claude", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-opus-4-5",
+          max_tokens: 300,
+          system: systemPrompt,
+          messages: [
+            ...messages.filter(m => m.role !== "system").map(m => ({ role: m.role, content: m.content })),
+            { role: "user", content: userMessage }
+          ],
+        }),
+      });
+      const data = await response.json();
+      const text = data.content.filter(b => b.type === "text").map(b => b.text).join("");
+      setMessages(prev => [...prev, { role: "assistant", content: text }]);
+    } catch {
+      setMessages(prev => [...prev, { role: "assistant", content: "Sorry, something went wrong. Try again." }]);
+    } finally { setLoading(false); }
+  };
+
+  const send = () => {
+    if (!input.trim() || loading) return;
+    const msg = input.trim();
+    setInput("");
+    setMessages(prev => [...prev, { role: "user", content: msg }]);
+    getCoachAdvice(msg);
+  };
+
+  useEffect(() => {
+    if (open && messages.length === 0) {
+      getCoachAdvice("Give me a quick overview of what I should focus on selling first.");
+    }
+  }, [open]);
+
+  if (listings.length < 3) return null;
+
+  return (
+    <>
+      <button className="coach-fab" onClick={() => setOpen(o => !o)}>
+        🎯 Selling Coach
+      </button>
+      {open && (
+        <div className="coach-panel">
+          <div className="coach-header">
+            <div className="coach-title">🎯 Selling Coach</div>
+            <button className="coach-close" onClick={() => setOpen(false)}>×</button>
+          </div>
+          <div className="coach-messages">
+            {messages.length === 0 && loading && (
+              <div className="coach-bubble ai"><div className="spin" style={{ width: 20, height: 20, borderWidth: 2, margin: "0 auto" }} /></div>
+            )}
+            {messages.map((m, i) => (
+              <div key={i} className={`coach-bubble ${m.role === "user" ? "me" : "ai"}`}>{m.content}</div>
+            ))}
+            {loading && messages.length > 0 && (
+              <div className="coach-bubble ai"><div className="spin" style={{ width: 20, height: 20, borderWidth: 2, margin: "0 auto" }} /></div>
+            )}
+          </div>
+          <div className="coach-input-row">
+            <input className="coach-input" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Ask for advice..." disabled={loading} />
+            <button className="coach-send" onClick={send} disabled={!input.trim() || loading}>→</button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ── Saved listing card ─────────────────────────────────────────────────────
-function SavedCard({ item, index }) {
+function SavedCard({ item, index, user, onLoginRequired }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [postInstructions, setPostInstructions] = useState(null);
@@ -94,13 +221,23 @@ function SavedCard({ item, index }) {
   const getListingText = () =>
     `${item.result.title}\n\n${item.result.description}\n\nAsking price: $${item.result.askingPrice}`;
 
+  const handleGatedAction = (action) => {
+    if (!user) { onLoginRequired(); return; }
+    action();
+  };
+
   const copyListing = (e) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(getListingText()).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2500); });
+    handleGatedAction(() => {
+      navigator.clipboard.writeText(getListingText()).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2500); });
+    });
   };
+
   const postTo = (platform, url) => (e) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(getListingText()).then(() => { setPostInstructions(platform); window.open(url, "_blank"); });
+    handleGatedAction(() => {
+      navigator.clipboard.writeText(getListingText()).then(() => { setPostInstructions(platform); window.open(url, "_blank"); });
+    });
   };
 
   return (
@@ -124,19 +261,31 @@ function SavedCard({ item, index }) {
           {item.result.diamondAlert && (<div className="diamond-box"><span className="diamond-icon">💎</span><div className="diamond-body"><strong>Might be worth more</strong>{item.result.diamondAlert}</div></div>)}
           {item.result.bucket !== "donate" && item.result.bucket !== "appraise" && (
             <>
-              <div className="sec-label">Your ready-to-post listing</div>
-              <div className="listing-box"><div className="listing-title">{item.result.title}</div><div className="listing-desc">{item.result.description}</div></div>
+              <div className="sec-label">Your listing</div>
+              <div className="listing-box">
+                <div className="listing-title">{item.result.title}</div>
+                {user ? (
+                  <div className="listing-desc">{item.result.description}</div>
+                ) : (
+                  <>
+                    <div className="listing-desc">{item.result.description.slice(0, 120)}...</div>
+                    <div className="listing-blur-wrap">
+                      <div className="listing-blur" />
+                      <button className="listing-unlock-btn" onClick={() => onLoginRequired()}>
+                        🔓 Sign in free to unlock full listing
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
               <div className="post-section">
                 <button className="btn-post btn-post-fb" onClick={postTo("facebook", "https://www.facebook.com/marketplace/create/item")}><span>📘</span> Post on Facebook Marketplace</button>
                 <button className="btn-post btn-post-ebay" onClick={postTo("ebay", `https://www.ebay.com/sell/selectformat?title=${encodeURIComponent(item.result.title)}`)}><span>🛒</span> Post on eBay</button>
                 <button className="btn-post btn-post-offerup" onClick={postTo("offerup", "https://offerup.com/sell")}><span>🟢</span> Post on OfferUp</button>
-                {postInstructions && (
-                  <div className="instructions-box">
-                    <strong>Listing copied! Paste it into the description on {postInstructions === "facebook" ? "Facebook Marketplace" : postInstructions === "ebay" ? "eBay" : "OfferUp"}.</strong>
-                  </div>
-                )}
+                <button className="btn-post btn-post-olx" onClick={postTo("olx", "https://www.olx.com")}><span>🟣</span> Post on OLX</button>
+                {postInstructions && (<div className="instructions-box"><strong>Listing copied! Paste it into the description on {postInstructions}.</strong><ol className="instructions-steps"><li><span className="step-num">1</span>The site opened in a new tab</li><li><span className="step-num">2</span>Click in the description box and press Ctrl+V to paste</li><li><span className="step-num">3</span>Set the price to ${item.result.askingPrice} and publish!</li></ol></div>)}
               </div>
-              <button className="btn-ghost" onClick={copyListing} style={copied ? { borderColor: "#2d7a4f", color: "#2d7a4f" } : {}}>{copied ? "✓ Copied!" : "Copy Listing Text"}</button>
+              <button className="btn-ghost" onClick={copyListing} style={copied ? { borderColor: "#2d7a4f", color: "#2d7a4f" } : {}}>{copied ? "✓ Copied!" : "Copy Listing"}</button>
             </>
           )}
         </div>
@@ -148,11 +297,7 @@ function SavedCard({ item, index }) {
 // ── Session summary ────────────────────────────────────────────────────────
 function SessionSummary({ listings, onAddMore }) {
   const buckets = { donate: [], bundle: [], local: [], specialist: [], appraise: [] };
-  listings.forEach(item => {
-    const b = item.result.bucket || "local";
-    if (buckets[b]) buckets[b].push(item);
-  });
-
+  listings.forEach(item => { const b = item.result.bucket || "local"; if (buckets[b]) buckets[b].push(item); });
   const totalValue = listings.reduce((sum, item) => sum + (item.result.askingPrice || 0), 0);
   const sellable = listings.filter(i => i.result.bucket !== "donate").length;
 
@@ -163,7 +308,6 @@ function SessionSummary({ listings, onAddMore }) {
         <h2 className="summary-title">Your Selling Plan</h2>
         <p className="summary-sub">{listings.length} items analyzed · {sellable} to sell · estimated ${totalValue} total</p>
       </div>
-
       {Object.entries(buckets).map(([key, items]) => {
         if (!items.length) return null;
         const b = bucketLabels[key];
@@ -184,7 +328,6 @@ function SessionSummary({ listings, onAddMore }) {
           </div>
         );
       })}
-
       <div className="summary-cta">
         <p className="summary-tip">One good sale covers the cost of any SellYourStuff.ai plan.</p>
         <button className="btn-primary" onClick={onAddMore}>+ Add More Items</button>
@@ -193,10 +336,45 @@ function SessionSummary({ listings, onAddMore }) {
   );
 }
 
+// ── Seller interview ───────────────────────────────────────────────────────
+function SellerInterview({ onComplete }) {
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState({ urgency: null, logistics: null, effort: null });
+  const questions = [
+    { key: "urgency", question: "How fast do you want to sell?", options: [{ value: "this_week", label: "This week", sub: "Price to move fast" }, { value: "within_a_month", label: "Within a month", sub: "Balanced approach" }, { value: "no_rush", label: "No rush", sub: "Maximize what I get" }] },
+    { key: "logistics", question: "Can you meet buyers locally or ship items?", options: [{ value: "local_only", label: "Local only", sub: "Pickup only, no shipping" }, { value: "can_ship", label: "I can ship", sub: "Open to eBay and online buyers" }, { value: "both", label: "Either works", sub: "Most flexible" }] },
+    { key: "effort", question: "How much effort can you put in per item?", options: [{ value: "minimal", label: "Minimal", sub: "Just get it sold" }, { value: "moderate", label: "Moderate", sub: "Happy to answer a question or two" }, { value: "happy_to_invest", label: "Happy to invest", sub: "I want the best price" }] },
+  ];
+  const current = questions[step];
+  const pick = (value) => {
+    const newAnswers = { ...answers, [current.key]: value };
+    setAnswers(newAnswers);
+    if (step < questions.length - 1) setStep(step + 1);
+    else onComplete(newAnswers);
+  };
+  return (
+    <div className="card interview-card">
+      <div className="interview-progress">{questions.map((_, i) => <div key={i} className={`interview-dot ${i <= step ? "active" : ""}`} />)}</div>
+      <div className="interview-q">{current.question}</div>
+      <div className="interview-options">
+        {current.options.map(opt => (
+          <button key={opt.value} className="interview-option" onClick={() => pick(opt.value)}>
+            <div className="interview-option-label">{opt.label}</div>
+            <div className="interview-option-sub">{opt.sub}</div>
+          </button>
+        ))}
+      </div>
+      <div className="interview-skip">
+        <button className="interview-skip-btn" onClick={() => onComplete({ urgency: "within_a_month", logistics: "both", effort: "moderate" })}>Skip and use defaults</button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main app ───────────────────────────────────────────────────────────────
 function MainApp() {
   const [phase, setPhase] = useState("interview");
-  const [sellerContext, setSellerContext] = useState({ urgency: null, logistics: null, effort: null });
+  const [sellerContext, setSellerContext] = useState({ urgency: "within_a_month", logistics: "both", effort: "moderate" });
   const [photos, setPhotos] = useState([]);
   const [chatMessages, setChatMessages] = useState([]);
   const [inputText, setInputText] = useState("");
@@ -210,10 +388,56 @@ function MainApp() {
   const [stripeLoading, setStripeLoading] = useState(false);
   const [heroVisible, setHeroVisible] = useState(true);
   const [showSummary, setShowSummary] = useState(false);
+  const [user, setUser] = useState(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const fileInputRef = useRef(null);
   const historyRef = useRef([]);
   const dragRef = useRef(null);
   const currentThumbRef = useRef(null);
+
+  // Auth state
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) loadUserData(session.user.id);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) loadUserData(session.user.id);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const loadUserData = async (userId) => {
+    const { data: profile } = await supabase.from("profiles").select("credits, plan").eq("id", userId).single();
+    if (profile) setCredits(profile.credits);
+    const { data: listings } = await supabase.from("listings").select("*").eq("user_id", userId).order("created_at", { ascending: false });
+    if (listings?.length) {
+      setSavedListings(listings.map(l => ({
+        id: l.id,
+        thumbUrl: l.thumb_url,
+        result: {
+          itemName: l.item_name, askingPrice: l.asking_price, platform: l.platform,
+          bucket: l.bucket, title: l.title, description: l.description,
+          platformReason: l.platform_reason, confidence: l.confidence,
+          estimatedValue: { low: l.estimated_value_low, high: l.estimated_value_high },
+          tips: l.tips, diamondAlert: l.diamond_alert,
+        }
+      })));
+    }
+  };
+
+  const saveListing = async (userId, listingResult, thumbUrl) => {
+    await supabase.from("listings").insert({
+      user_id: userId, item_name: listingResult.itemName, asking_price: listingResult.askingPrice,
+      platform: listingResult.platform, bucket: listingResult.bucket, title: listingResult.title,
+      description: listingResult.description, platform_reason: listingResult.platformReason,
+      confidence: listingResult.confidence, estimated_value_low: listingResult.estimatedValue?.low,
+      estimated_value_high: listingResult.estimatedValue?.high, tips: listingResult.tips,
+      diamond_alert: listingResult.diamondAlert, thumb_url: thumbUrl,
+    });
+    await supabase.from("profiles").update({ credits: credits - 1 }).eq("id", userId);
+  };
 
   const toBase64 = (file) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result.split(",")[1]); r.onerror = rej; r.readAsDataURL(file); });
 
@@ -234,15 +458,9 @@ function MainApp() {
     return JSON.parse(text.replace(/```json\n?|\n?```/g, "").trim());
   };
 
-  const finishInterview = (context) => {
-    setSellerContext(context);
-    setPhase("upload");
-  };
-
   const analyze = async () => {
     if (!photos.length) return;
-    setHeroVisible(false);
-    setLoading(true); setError(null); setPhase("analyzing");
+    setHeroVisible(false); setLoading(true); setError(null); setPhase("analyzing");
     currentThumbRef.current = photos[0]?.url || null;
     try {
       const imageBlocks = await Promise.all(photos.map(async p => ({ type: "image", source: { type: "base64", media_type: p.file.type || "image/jpeg", data: await toBase64(p.file) } })));
@@ -267,35 +485,34 @@ function MainApp() {
       historyRef.current.push({ role: "assistant", content: JSON.stringify(parsed) });
       if (parsed.type === "listing") { setResult(parsed); setPhase("result"); }
       else { setChatMessages(prev => [...prev, { role: "assistant", data: parsed }]); }
-    } catch (e) { setError("Something went wrong. Try again."); }
+    } catch { setError("Something went wrong. Try again."); }
     finally { setLoading(false); }
   };
 
-  const saveAndAddAnother = () => {
+  const saveAndAddAnother = async () => {
     if (result) {
-      const newListings = [{ id: Math.random(), result, thumbUrl: currentThumbRef.current }, ...savedListings];
-      setSavedListings(newListings);
+      const newListing = { id: Math.random(), result, thumbUrl: currentThumbRef.current };
+      setSavedListings(prev => [newListing, ...prev]);
+      if (user) await saveListing(user.id, result, currentThumbRef.current);
       const newCredits = credits - 1;
       setCredits(newCredits);
-      if (newCredits <= 0) { setPhase("paywall"); resetUpload(); return; }
+      if (newCredits <= 0 && !user) { setPhase("paywall"); resetUpload(); return; }
     }
-    resetUpload();
-    setPhase("upload");
+    resetUpload(); setPhase("upload");
   };
 
-  const savAndShowSummary = () => {
+  const saveAndShowSummary = async () => {
     if (result) {
       setSavedListings(prev => [{ id: Math.random(), result, thumbUrl: currentThumbRef.current }, ...prev]);
+      if (user) await saveListing(user.id, result, currentThumbRef.current);
       setCredits(c => c - 1);
     }
-    resetUpload();
-    setShowSummary(true);
-    setPhase("upload");
+    resetUpload(); setShowSummary(true); setPhase("upload");
   };
 
   const resetUpload = () => {
-    setPhotos([]); setChatMessages([]); setInputText(""); setResult(null); setError(null); setPostInstructions(null);
-    historyRef.current = []; currentThumbRef.current = null;
+    setPhotos([]); setChatMessages([]); setInputText(""); setResult(null);
+    setError(null); setPostInstructions(null); historyRef.current = []; currentThumbRef.current = null;
   };
 
   const handleStripeCheckout = async (priceId, mode) => {
@@ -308,9 +525,17 @@ function MainApp() {
     finally { setStripeLoading(false); }
   };
 
+  const signOut = async () => { await supabase.auth.signOut(); setUser(null); setCredits(3); setSavedListings([]); };
+
   const getListingText = () => result ? `${result.title}\n\n${result.description}\n\nAsking price: $${result.askingPrice}` : "";
-  const copyListing = () => { navigator.clipboard.writeText(getListingText()).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2500); }); };
-  const postTo = (platform, url) => () => { navigator.clipboard.writeText(getListingText()).then(() => { setPostInstructions(platform); window.open(url, "_blank"); }); };
+  const copyListing = () => {
+    if (!user) { setShowAuthModal(true); return; }
+    navigator.clipboard.writeText(getListingText()).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2500); });
+  };
+  const postTo = (platform, url) => () => {
+    if (!user) { setShowAuthModal(true); return; }
+    navigator.clipboard.writeText(getListingText()).then(() => { setPostInstructions(platform); window.open(url, "_blank"); });
+  };
   const onDragOver = (e) => { e.preventDefault(); dragRef.current?.classList.add("dz-hover"); };
   const onDragLeave = () => dragRef.current?.classList.remove("dz-hover");
   const onDrop = (e) => { e.preventDefault(); dragRef.current?.classList.remove("dz-hover"); addPhotos(e.dataTransfer.files); };
@@ -318,31 +543,40 @@ function MainApp() {
 
   return (
     <div className="app">
+      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} onLogin={() => setShowAuthModal(false)} />}
+
       <nav className="navbar">
         <div className="nav-logo">SellYourStuff<span>.ai</span></div>
         <div className="nav-links">
           <Link to="/blog" className="nav-link">Tips &amp; Guides</Link>
+          {user ? (
+            <div className="nav-user">
+              <span className="nav-email">{user.email?.split("@")[0]}</span>
+              <button className="nav-signout" onClick={signOut}>Sign out</button>
+            </div>
+          ) : (
+            <button className="nav-signin" onClick={() => setShowAuthModal(true)}>Sign in</button>
+          )}
         </div>
       </nav>
 
       {heroVisible && (
         <div className="hero">
           <div className="hero-inner">
-            <h1 className="hero-title">Selling your stuff online just got a lot easier.</h1>
-            <p className="hero-desc">Take a few photos of your stuff: furniture, collectibles, electronics, clothes, sports gear, etc. and SellYourStuff.ai figures out what it's worth, writes a ready-to-post listing, and tells you exactly where to sell it. eBay, Facebook Marketplace, Craigslist, Etsy; we pick the right one for you.</p>
-            <p className="hero-desc">Perfect for a garage sale, a house move, or just clearing out years of stuff. List 25 things in the time it used to take to list one!</p>
+            <h1 className="hero-title">Turn your pile of stuff into money. We'll tell you how.</h1>
+            <p className="hero-subhead">And we'll make sure you don't miss the diamond in the rough that makes it all worth it.</p>
+            <p className="hero-desc">Take photos of your stuff: furniture, collectibles, electronics, clothes, tools, random junk. SellYourStuff.ai figures out what each thing is worth and the smartest way to move it, making listing and selling fast. Whether it's eBay, Facebook Marketplace, local listing, or even a garage sale. We'll make it easy for you!</p>
             <div className="hero-badges">
               <span className="hero-badge">📷 Just upload photos</span>
               <span className="hero-badge">💰 AI pricing</span>
-              <span className="hero-badge">📋 Ready-to-post listings</span>
-              <span className="hero-badge">🎯 Best platform picked for you</span>
+              <span className="hero-badge">💎 Spot the high-value items</span>
+              <span className="hero-badge">🎯 Online, local, or garage sale</span>
             </div>
           </div>
         </div>
       )}
 
       <div className="main-layout">
-        {/* ── LEFT ── */}
         <div className="left-panel">
           <div className="panel-header">
             <h1 className="panel-title">{phase === "interview" ? "Before we start..." : "What are you selling?"}</h1>
@@ -352,12 +586,8 @@ function MainApp() {
             )}
           </div>
 
-          {/* INTERVIEW */}
-          {phase === "interview" && (
-            <SellerInterview onComplete={finishInterview} />
-          )}
+          {phase === "interview" && <SellerInterview onComplete={(ctx) => { setSellerContext(ctx); setPhase("upload"); }} />}
 
-          {/* UPLOAD */}
           {phase === "upload" && (
             <div className="card">
               <div className="drop-zone" ref={dragRef} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} onClick={() => fileInputRef.current?.click()}>
@@ -366,18 +596,12 @@ function MainApp() {
                 <div className="drop-sub">Up to 6 photos · furniture, antiques, electronics, anything</div>
               </div>
               <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => addPhotos(e.target.files)} />
-              {photos.length > 0 && (
-                <>
-                  <div className="photo-grid">{photos.map((p, i) => (<div key={p.id} className="thumb"><img src={p.url} alt="" /><button className="thumb-x" onClick={e => { e.stopPropagation(); setPhotos(prev => prev.filter((_, j) => j !== i)); }}>×</button></div>))}</div>
-                  <div className="photo-count">{photos.length} photo{photos.length !== 1 ? "s" : ""} ready</div>
-                </>
-              )}
+              {photos.length > 0 && (<><div className="photo-grid">{photos.map((p, i) => (<div key={p.id} className="thumb"><img src={p.url} alt="" /><button className="thumb-x" onClick={e => { e.stopPropagation(); setPhotos(prev => prev.filter((_, j) => j !== i)); }}>×</button></div>))}</div><div className="photo-count">{photos.length} photo{photos.length !== 1 ? "s" : ""} ready</div></>)}
               {error && <div className="err">{error}</div>}
               <button className="btn-primary" disabled={!photos.length || loading} onClick={analyze}>Analyze &amp; Price It →</button>
             </div>
           )}
 
-          {/* PAYWALL */}
           {phase === "paywall" && (
             <div className="paywall-card">
               <div className="paywall-icon">🎉</div>
@@ -409,30 +633,12 @@ function MainApp() {
             </div>
           )}
 
-          {/* ANALYZING */}
-          {phase === "analyzing" && (
-            <div className="card">
-              <div className="analyzing">
-                <div className="spin" />
-                <div className="analyzing-title">Analyzing your item...</div>
-                <div className="analyzing-sub">Checking value, finding the best platform, writing your listing</div>
-              </div>
-            </div>
-          )}
+          {phase === "analyzing" && (<div className="card"><div className="analyzing"><div className="spin" /><div className="analyzing-title">Analyzing your item...</div><div className="analyzing-sub">Checking value, finding the best platform, writing your listing</div></div></div>)}
 
-          {/* CHAT */}
           {phase === "chat" && (
             <div className="card">
               <div style={{ marginBottom: "1rem" }}><div className="card-title">One quick question</div><div className="card-sub">This helps me give you a better recommendation</div></div>
-              {chatMessages.map((msg, i) =>
-                msg.role === "assistant" && msg.data?.type === "question" ? (
-                  <div key={i} className="bubble ai">
-                    {msg.data.seen && <div className="seen-label">I can see: {msg.data.seen}</div>}
-                    <div style={{ fontWeight: 500 }}>{msg.data.question}</div>
-                    {msg.data.why && <div className="why-note">{msg.data.why}</div>}
-                  </div>
-                ) : msg.role === "user" ? <div key={i} className="bubble me">{msg.text}</div> : null
-              )}
+              {chatMessages.map((msg, i) => msg.role === "assistant" && msg.data?.type === "question" ? (<div key={i} className="bubble ai">{msg.data.seen && <div className="seen-label">I can see: {msg.data.seen}</div>}<div style={{ fontWeight: 500 }}>{msg.data.question}</div>{msg.data.why && <div className="why-note">{msg.data.why}</div>}</div>) : msg.role === "user" ? <div key={i} className="bubble me">{msg.text}</div> : null)}
               {loading && <div className="bubble ai"><div className="spin" style={{ width: 22, height: 22, borderWidth: 2, margin: "0 auto" }} /></div>}
               <div className="chat-row">
                 <input className="chat-input" value={inputText} onChange={e => setInputText(e.target.value)} onKeyDown={e => e.key === "Enter" && sendAnswer()} placeholder="Type your answer..." disabled={loading} />
@@ -442,50 +648,51 @@ function MainApp() {
             </div>
           )}
 
-          {/* RESULT */}
           {phase === "result" && result && (
             <div className="card">
-              {result.bucket && bucketLabels[result.bucket] && (
-                <div className="bucket-badge" style={{ background: bucketLabels[result.bucket].color }}>
-                  {bucketLabels[result.bucket].icon} {bucketLabels[result.bucket].label}
-                </div>
-              )}
+              {result.bucket && bucketLabels[result.bucket] && (<div className="bucket-badge" style={{ background: bucketLabels[result.bucket].color }}>{bucketLabels[result.bucket].icon} {bucketLabels[result.bucket].label}</div>)}
               <div className="plat-badge" style={{ background: pColor }}>Best on: {result.platformName || result.platform}</div>
               <div className="item-name">{result.itemName}</div>
-              {result.askingPrice > 0 && (
-                <div className="val-row">
-                  <div className="val-big">${result.askingPrice}</div>
-                  <div className="val-meta">asking · market ${result.estimatedValue?.low}–${result.estimatedValue?.high} · <span className={`conf-dot conf-${result.confidence}`} />{result.confidence} confidence</div>
-                </div>
-              )}
+              {result.askingPrice > 0 && (<div className="val-row"><div className="val-big">${result.askingPrice}</div><div className="val-meta">asking · market ${result.estimatedValue?.low}–${result.estimatedValue?.high} · <span className={`conf-dot conf-${result.confidence}`} />{result.confidence} confidence</div></div>)}
               <div className="info-box"><strong>Our recommendation</strong>{result.platformReason}</div>
               {result.diamondAlert && (<div className="diamond-box"><span className="diamond-icon">💎</span><div className="diamond-body"><strong>Heads up — this might be worth more</strong>{result.diamondAlert}</div></div>)}
               {result.bucket !== "donate" && result.bucket !== "appraise" && (
                 <>
-                  <div className="sec-label">Your ready-to-post listing</div>
-                  <div className="listing-box"><div className="listing-title">{result.title}</div><div className="listing-desc">{result.description}</div></div>
+                  <div className="sec-label">Your listing</div>
+                  <div className="listing-box">
+                    <div className="listing-title">{result.title}</div>
+                    {user ? (
+                      <div className="listing-desc">{result.description}</div>
+                    ) : (
+                      <>
+                        <div className="listing-desc">{result.description.slice(0, 150)}...</div>
+                        <div className="listing-blur-wrap">
+                          <div className="listing-blur" />
+                          <button className="listing-unlock-btn" onClick={() => setShowAuthModal(true)}>🔓 Sign in free to unlock full listing</button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                   {result.tips?.length > 0 && (<><div className="sec-label">Selling tips</div><ul className="tips">{result.tips.map((t, i) => <li key={i}>{t}</li>)}</ul></>)}
                   <div className="post-section">
                     <div className="sec-label">Post your listing</div>
-                    <button className="btn-post btn-post-fb" onClick={postTo("facebook", "https://www.facebook.com/marketplace/create/item")}><span>📘</span> Post on Facebook Marketplace</button>
-                    <button className="btn-post btn-post-ebay" onClick={postTo("ebay", `https://www.ebay.com/sell/selectformat?title=${encodeURIComponent(result.title)}`)}><span>🛒</span> Post on eBay</button>
-                    <button className="btn-post btn-post-offerup" onClick={postTo("offerup", "https://offerup.com/sell")}><span>🟢</span> Post on OfferUp</button>
-                    {postInstructions && (<div className="instructions-box"><strong>Listing copied! Paste it into the description on {postInstructions === "facebook" ? "Facebook Marketplace" : postInstructions === "ebay" ? "eBay" : "OfferUp"}.</strong><ol className="instructions-steps"><li><span className="step-num">1</span>The site opened in a new tab</li><li><span className="step-num">2</span>Click in the description box and press Ctrl+V to paste</li><li><span className="step-num">3</span>Set the price to ${result.askingPrice} and publish!</li></ol></div>)}
+                    <button className="btn-post btn-post-fb" onClick={postTo("Facebook Marketplace", "https://www.facebook.com/marketplace/create/item")}><span>📘</span> Post on Facebook Marketplace</button>
+                    <button className="btn-post btn-post-ebay" onClick={postTo("eBay", `https://www.ebay.com/sell/selectformat?title=${encodeURIComponent(result.title)}`)}><span>🛒</span> Post on eBay</button>
+                    <button className="btn-post btn-post-offerup" onClick={postTo("OfferUp", "https://offerup.com/sell")}><span>🟢</span> Post on OfferUp</button>
+                    <button className="btn-post btn-post-olx" onClick={postTo("OLX", "https://www.olx.com")}><span>🟣</span> Post on OLX</button>
+                    {postInstructions && (<div className="instructions-box"><strong>Listing copied! Paste it into the description on {postInstructions}.</strong><ol className="instructions-steps"><li><span className="step-num">1</span>The site opened in a new tab</li><li><span className="step-num">2</span>Click in the description and press Ctrl+V to paste</li><li><span className="step-num">3</span>Set the price to ${result.askingPrice} and publish!</li></ol></div>)}
                   </div>
                 </>
               )}
               <div className="actions-row">
-                {result.bucket !== "donate" && result.bucket !== "appraise" && (
-                  <button className="btn-ghost" onClick={copyListing} style={copied ? { borderColor: "#2d7a4f", color: "#2d7a4f" } : {}}>{copied ? "✓ Copied!" : "Copy Listing"}</button>
-                )}
+                {result.bucket !== "donate" && result.bucket !== "appraise" && (<button className="btn-ghost" onClick={copyListing} style={copied ? { borderColor: "#2d7a4f", color: "#2d7a4f" } : {}}>{copied ? "✓ Copied!" : "Copy Listing"}</button>)}
                 <button className="btn-ghost" onClick={saveAndAddAnother}>+ Add Another Item</button>
-                {savedListings.length > 0 && <button className="btn-ghost btn-summary" onClick={savAndShowSummary}>View My Plan</button>}
+                {savedListings.length > 0 && <button className="btn-ghost btn-summary" onClick={saveAndShowSummary}>View My Plan</button>}
               </div>
             </div>
           )}
         </div>
 
-        {/* ── RIGHT ── */}
         <div className="right-panel">
           {showSummary && savedListings.length > 0 ? (
             <SessionSummary listings={savedListings} onAddMore={() => { setShowSummary(false); setPhase("upload"); }} />
@@ -496,18 +703,18 @@ function MainApp() {
                 {savedListings.length > 0 && <span className="listings-count">{savedListings.length} item{savedListings.length !== 1 ? "s" : ""}</span>}
               </div>
               {savedListings.length === 0 ? (
-                <div className="empty-listings">
-                  <div className="empty-icon">📋</div>
-                  <div className="empty-text">Your listings will appear here</div>
-                  <div className="empty-sub">Analyze an item to get started</div>
-                </div>
+                <div className="empty-listings"><div className="empty-icon">📋</div><div className="empty-text">Your listings will appear here</div><div className="empty-sub">Analyze an item to get started</div></div>
               ) : (
-                savedListings.map((item, i) => <SavedCard key={item.id} item={item} index={i} />)
+                savedListings.map((item, i) => <SavedCard key={item.id} item={item} index={i} user={user} onLoginRequired={() => setShowAuthModal(true)} />)
               )}
             </>
           )}
         </div>
       </div>
+
+      {user && savedListings.length >= 3 && (
+        <SellingCoach listings={savedListings} sellerContext={sellerContext} />
+      )}
 
       <footer className="footer">
         <div className="footer-inner">
@@ -515,76 +722,6 @@ function MainApp() {
           <Link to="/blog" className="footer-link">Tips &amp; Guides</Link>
         </div>
       </footer>
-    </div>
-  );
-}
-
-// ── Seller interview ───────────────────────────────────────────────────────
-function SellerInterview({ onComplete }) {
-  const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState({ urgency: null, logistics: null, effort: null });
-
-  const questions = [
-    {
-      key: "urgency",
-      question: "How fast do you want to sell?",
-      options: [
-        { value: "this_week", label: "This week", sub: "Price to move fast" },
-        { value: "within_a_month", label: "Within a month", sub: "Balanced approach" },
-        { value: "no_rush", label: "No rush", sub: "Maximize what I get" },
-      ]
-    },
-    {
-      key: "logistics",
-      question: "Can you meet buyers locally or ship items?",
-      options: [
-        { value: "local_only", label: "Local only", sub: "Pickup only, no shipping" },
-        { value: "can_ship", label: "I can ship", sub: "Open to eBay and online buyers" },
-        { value: "both", label: "Either works", sub: "Most flexible" },
-      ]
-    },
-    {
-      key: "effort",
-      question: "How much effort can you put in per item?",
-      options: [
-        { value: "minimal", label: "Minimal", sub: "Just get it sold" },
-        { value: "moderate", label: "Moderate", sub: "Happy to answer a question or two" },
-        { value: "happy_to_invest", label: "Happy to invest", sub: "I want the best price" },
-      ]
-    }
-  ];
-
-  const current = questions[step];
-
-  const pick = (value) => {
-    const newAnswers = { ...answers, [current.key]: value };
-    setAnswers(newAnswers);
-    if (step < questions.length - 1) {
-      setStep(step + 1);
-    } else {
-      onComplete(newAnswers);
-    }
-  };
-
-  return (
-    <div className="card interview-card">
-      <div className="interview-progress">
-        {questions.map((_, i) => <div key={i} className={`interview-dot ${i <= step ? "active" : ""}`} />)}
-      </div>
-      <div className="interview-q">{current.question}</div>
-      <div className="interview-options">
-        {current.options.map(opt => (
-          <button key={opt.value} className="interview-option" onClick={() => pick(opt.value)}>
-            <div className="interview-option-label">{opt.label}</div>
-            <div className="interview-option-sub">{opt.sub}</div>
-          </button>
-        ))}
-      </div>
-      <div className="interview-skip">
-        <button className="interview-skip-btn" onClick={() => onComplete({ urgency: "within_a_month", logistics: "both", effort: "moderate" })}>
-          Skip and use defaults
-        </button>
-      </div>
     </div>
   );
 }
