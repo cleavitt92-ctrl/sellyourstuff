@@ -531,6 +531,8 @@ function SellerInterview({ onComplete }) {
   );
 }
 
+const ADMIN_EMAILS = ["cleavitt92@gmail.com", "jleavitt@rfam.net"];
+
 // ── Main app ───────────────────────────────────────────────────────────────
 function MainApp() {
   const [phase, setPhase] = useState("interview");
@@ -546,7 +548,7 @@ function MainApp() {
   const [savedListings, setSavedListings] = useState([]);
   const [credits, setCredits] = useState(3);
   const [stripeLoading, setStripeLoading] = useState(false);
-  const [heroVisible, setHeroVisible] = useState(true);
+  const [heroVisible, setHeroVisible] = useState(() => localStorage.getItem("sysHeroSeen") !== "true");
   const [showSummary, setShowSummary] = useState(false);
   const [user, setUser] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -559,18 +561,23 @@ function MainApp() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      if (session?.user) loadUserData(session.user.id);
+      if (session?.user) loadUserData(session.user.id, session.user.email);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      if (session?.user) loadUserData(session.user.id);
+      if (session?.user) loadUserData(session.user.id, session.user.email);
     });
     return () => subscription.unsubscribe();
   }, []);
 
-  const loadUserData = async (userId) => {
-    const { data: profile } = await supabase.from("profiles").select("credits, plan").eq("id", userId).single();
-    if (profile) setCredits(profile.credits);
+  const loadUserData = async (userId, email) => {
+    // Admin emails get unlimited credits
+    if (ADMIN_EMAILS.includes(email)) {
+      setCredits(9999);
+    } else {
+      const { data: profile } = await supabase.from("profiles").select("credits, plan").eq("id", userId).single();
+      if (profile) setCredits(profile.credits);
+    }
     const { data: listings } = await supabase.from("listings").select("*").eq("user_id", userId).order("created_at", { ascending: false });
     if (listings?.length) {
       setSavedListings(listings.map(l => ({
@@ -584,6 +591,9 @@ function MainApp() {
           tips: l.tips, diamondAlert: l.diamond_alert,
         }
       })));
+      // Hide hero if they've listed before
+      localStorage.setItem("sysHeroSeen", "true");
+      setHeroVisible(false);
     }
   };
 
@@ -667,11 +677,29 @@ function MainApp() {
     finally { setLoading(false); }
   };
 
+  const uploadThumb = async (userId, dataUrl) => {
+    if (!dataUrl || !dataUrl.startsWith("blob:")) return null;
+    try {
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      const filename = `${userId}/${Date.now()}.jpg`;
+      const { error } = await supabase.storage.from("thumbnails").upload(filename, blob, { contentType: "image/jpeg" });
+      if (error) return null;
+      const { data } = supabase.storage.from("thumbnails").getPublicUrl(filename);
+      return data.publicUrl;
+    } catch { return null; }
+  };
+
   const saveAndAddAnother = async () => {
     if (result) {
-      const newListing = { id: Math.random(), result, thumbUrl: currentThumbRef.current };
+      let thumbUrl = currentThumbRef.current;
+      if (user && thumbUrl) thumbUrl = await uploadThumb(user.id, thumbUrl) || thumbUrl;
+      const newListing = { id: Math.random(), result, thumbUrl };
       setSavedListings(prev => [newListing, ...prev]);
-      if (user) await saveListing(user.id, result, currentThumbRef.current);
+      if (user) await saveListing(user.id, result, thumbUrl);
+      // Hide hero permanently after first real listing
+      localStorage.setItem("sysHeroSeen", "true");
+      setHeroVisible(false);
       const newCredits = credits - 1;
       setCredits(newCredits);
       if (newCredits <= 0 && !user) { setPhase("paywall"); resetUpload(); return; }
@@ -681,8 +709,12 @@ function MainApp() {
 
   const saveAndShowSummary = async () => {
     if (result) {
-      setSavedListings(prev => [{ id: Math.random(), result, thumbUrl: currentThumbRef.current }, ...prev]);
-      if (user) await saveListing(user.id, result, currentThumbRef.current);
+      let thumbUrl = currentThumbRef.current;
+      if (user && thumbUrl) thumbUrl = await uploadThumb(user.id, thumbUrl) || thumbUrl;
+      setSavedListings(prev => [{ id: Math.random(), result, thumbUrl }, ...prev]);
+      if (user) await saveListing(user.id, result, thumbUrl);
+      localStorage.setItem("sysHeroSeen", "true");
+      setHeroVisible(false);
       setCredits(c => c - 1);
     }
     resetUpload(); setShowSummary(true); setPhase("upload");
@@ -757,8 +789,8 @@ function MainApp() {
       <div className="main-layout">
         <div className="left-panel">
           <div className="panel-header">
-            <h1 className="panel-title">{phase === "interview" ? "Before we start..." : "What are you selling?"}</h1>
-            <p className="panel-sub">{phase === "interview" ? "Three quick questions so we can tailor every recommendation to you." : "Upload up to 6 photos — we'll price it, write the listing, and tell you where to post it."}</p>
+            <h1 className="panel-title">{phase === "interview" ? "New Listing" : "New Listing"}</h1>
+            <p className="panel-sub">{phase === "interview" ? "Answer three quick questions so we can tailor every recommendation to you." : "Upload up to 6 photos — we'll price it, write the listing, and tell you where to post it."}</p>
             {phase !== "interview" && credits <= 3 && credits > 0 && (
               <div className="credits-badge">{credits} free listing{credits !== 1 ? "s" : ""} remaining</div>
             )}
