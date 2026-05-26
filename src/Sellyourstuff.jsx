@@ -484,7 +484,25 @@ function MainApp() {
     await supabase.from("profiles").update({ credits: credits - 1 }).eq("id", userId);
   };
 
-  const toBase64 = (file) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result.split(",")[1]); r.onerror = rej; r.readAsDataURL(file); });
+  const toBase64 = (file) => new Promise((res, rej) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX = 1024;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      res(canvas.toDataURL("image/jpeg", 0.8).split(",")[1]);
+    };
+    img.onerror = rej;
+    img.src = url;
+  });
 
   const addPhotos = (files) => {
     const valid = Array.from(files).filter(f => f.type.startsWith("image/"));
