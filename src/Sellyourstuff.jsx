@@ -80,7 +80,122 @@ const platformColors = {
   Donate: "#94a3b8",
 };
 
-const bucketLabels = {
+const SAMPLE_LISTINGS = [
+  {
+    id: "sample-1",
+    isSample: true,
+    thumbUrl: null,
+    result: {
+      itemName: "1987 Fender Stratocaster",
+      askingPrice: 850,
+      platform: "eBay",
+      platformName: "eBay",
+      bucket: "specialist",
+      confidence: "high",
+      estimatedValue: { low: 750, high: 950 },
+      platformReason: "Vintage guitars have a global collector market on eBay.",
+      title: "1987 Fender Stratocaster Sunburst — Vintage USA Made",
+      description: "",
+      tips: [],
+      diamondAlert: "This could be worth significantly more if it has the original case and hardware. Check the serial number — certain 1987 production runs are highly collectible.",
+    }
+  },
+  {
+    id: "sample-2",
+    isSample: true,
+    thumbUrl: null,
+    result: {
+      itemName: "Mid-Century Danish Teak Dresser",
+      askingPrice: 320,
+      platform: "Facebook Marketplace",
+      platformName: "Facebook Marketplace",
+      bucket: "local",
+      confidence: "high",
+      estimatedValue: { low: 280, high: 380 },
+      platformReason: "Heavy furniture sells best locally — Facebook Marketplace buyers will come to you.",
+      title: "Mid-Century Danish Teak 6-Drawer Dresser — Excellent Condition",
+      description: "",
+      tips: [],
+      diamondAlert: null,
+    }
+  },
+  {
+    id: "sample-3",
+    isSample: true,
+    thumbUrl: null,
+    result: {
+      itemName: "Lot of 45 Pokemon Cards",
+      askingPrice: 180,
+      platform: "eBay",
+      platformName: "eBay",
+      bucket: "specialist",
+      confidence: "medium",
+      estimatedValue: { low: 120, high: 240 },
+      platformReason: "Pokemon cards have a huge global collector base on eBay.",
+      title: "Lot of 45 Pokemon Cards — Includes Holos, 1st Edition",
+      description: "",
+      tips: [],
+      diamondAlert: null,
+    }
+  },
+  {
+    id: "sample-4",
+    isSample: true,
+    thumbUrl: null,
+    result: {
+      itemName: "KitchenAid Stand Mixer",
+      askingPrice: 95,
+      platform: "Facebook Marketplace",
+      platformName: "Facebook Marketplace",
+      bucket: "local",
+      confidence: "high",
+      estimatedValue: { low: 80, high: 120 },
+      platformReason: "Popular appliance with strong local demand — sells fast on Marketplace.",
+      title: "KitchenAid Artisan Stand Mixer 5qt — Works Perfectly",
+      description: "",
+      tips: [],
+      diamondAlert: null,
+    }
+  },
+  {
+    id: "sample-5",
+    isSample: true,
+    thumbUrl: null,
+    result: {
+      itemName: "Vintage Levi's 501 Jeans",
+      askingPrice: 65,
+      platform: "Etsy",
+      platformName: "Etsy",
+      bucket: "specialist",
+      confidence: "medium",
+      estimatedValue: { low: 50, high: 85 },
+      platformReason: "Vintage denim has a dedicated buyer base on Etsy willing to pay premium prices.",
+      title: "Vintage Levi's 501 Jeans 32x30 — Made in USA 1990s",
+      description: "",
+      tips: [],
+      diamondAlert: null,
+    }
+  },
+  {
+    id: "sample-6",
+    isSample: true,
+    thumbUrl: null,
+    result: {
+      itemName: "Box of Misc Hand Tools",
+      askingPrice: 0,
+      platform: "Craigslist",
+      platformName: "Garage Sale",
+      bucket: "bundle",
+      confidence: "medium",
+      estimatedValue: { low: 0, high: 25 },
+      platformReason: "Common tools aren't worth listing individually — bundle them at a garage sale.",
+      title: "",
+      description: "",
+      tips: [],
+      diamondAlert: null,
+    }
+  },
+];
   donate: { label: "Donate", color: "#94a3b8", icon: "🤝" },
   bundle: { label: "Bundle / Garage Sale", color: "#f59e0b", icon: "📦" },
   local: { label: "Sell Locally", color: "#1877f2", icon: "📍" },
@@ -766,7 +881,38 @@ function MainApp() {
                 {savedListings.length > 0 && <span className="listings-count">{savedListings.length} item{savedListings.length !== 1 ? "s" : ""}</span>}
               </div>
               {savedListings.length === 0 ? (
-                <div className="empty-listings"><div className="empty-icon">📋</div><div className="empty-text">Your listings will appear here</div><div className="empty-sub">Analyze an item to get started</div></div>
+                <div className="sample-listings-wrap">
+                  <div className="sample-listings-label">
+                    <span>✨ Here's what your inventory looks like</span>
+                  </div>
+                  <div className="sample-listings-overlay">
+                    <div className="sample-total-bar">
+                      <span>6 sample items</span>
+                      <span className="sample-total">Est. $1,510 total</span>
+                    </div>
+                    {SAMPLE_LISTINGS.map((item, i) => {
+                      const bucket = bucketLabels[item.result.bucket] || bucketLabels.local;
+                      const pColor = platformColors[item.result.platform] || "#888";
+                      return (
+                        <div key={item.id} className="sample-card">
+                          <div className="sample-thumb">{bucket.icon}</div>
+                          <div className="saved-meta">
+                            <div className="saved-name">
+                              {item.result.itemName}
+                              {item.result.diamondAlert && <span className="sample-diamond"> 💎</span>}
+                            </div>
+                            <div className="saved-sub">
+                              {item.result.askingPrice > 0 && <span className="saved-price">${item.result.askingPrice}</span>}
+                              <span className="saved-badge" style={{ background: bucket.color }}>{bucket.label}</span>
+                              {item.result.askingPrice > 0 && <span className="saved-badge" style={{ background: pColor }}>{item.result.platformName}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="sample-cta">Upload your first item to build your real inventory →</div>
+                </div>
               ) : (
                 savedListings.map((item, i) => <SavedCard key={item.id} item={item} index={i} user={user} onLoginRequired={() => setShowAuthModal(true)} />)
               )}
