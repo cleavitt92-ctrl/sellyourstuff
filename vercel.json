@@ -2,6 +2,14 @@
   "functions": {
     "api/claude.js": {
       "maxDuration": 30
+    },
+    "api/checkout.js": {
+      "maxDuration": 30
+    }
+  },
+  "api": {
+    "bodyParser": {
+      "sizeLimit": "20mb"
     }
   }
 }

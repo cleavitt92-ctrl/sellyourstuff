@@ -1,11 +1,8 @@
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
-  const key = process.env.CLAUDE_API_KEY;
-
-  if (!key) {
-    return res.status(500).json({ error: "API key not found", env: Object.keys(process.env).join(",") });
-  }
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) return res.status(500).json({ error: "API key not found" });
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -27,6 +24,10 @@ export default async function handler(req, res) {
 }
 
 export const config = {
-  api: { bodyParser: true },
+  api: {
+    bodyParser: {
+      sizeLimit: "20mb",
+    },
+  },
   maxDuration: 30,
 };
