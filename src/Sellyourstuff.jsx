@@ -280,98 +280,6 @@ function AuthModal({ onClose }) {
   );
 }
 
-// ── Selling Coach ──────────────────────────────────────────────────────────
-function SellingCoach({ listings, sellerContext }) {
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [open, setOpen] = useState(false);
-
-  const getCoachAdvice = async (userMessage) => {
-    setLoading(true);
-    const listingSummary = listings.map(l =>
-      `${l.result.itemName}: $${l.result.askingPrice}, ${l.result.bucket}, ${l.result.platform}`
-    ).join("\n");
-
-    const systemPrompt = `You are a selling coach helping someone sell their stuff. 
-    
-Seller context: urgency=${sellerContext.urgency}, logistics=${sellerContext.logistics}, effort=${sellerContext.effort}
-
-Their current listings:
-${listingSummary}
-
-Give concise, practical advice. Prioritize items by ROI and effort. Tell them what to focus on first and what to deprioritize. Keep responses under 150 words. Be direct and encouraging.`;
-
-    try {
-      const response = await fetch("/api/claude", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-opus-4-5",
-          max_tokens: 300,
-          system: systemPrompt,
-          messages: [
-            ...messages.filter(m => m.role !== "system").map(m => ({ role: m.role, content: m.content })),
-            { role: "user", content: userMessage }
-          ],
-        }),
-      });
-      const data = await response.json();
-      const text = data.content.filter(b => b.type === "text").map(b => b.text).join("");
-      setMessages(prev => [...prev, { role: "assistant", content: text }]);
-    } catch {
-      setMessages(prev => [...prev, { role: "assistant", content: "Sorry, something went wrong. Try again." }]);
-    } finally { setLoading(false); }
-  };
-
-  const send = () => {
-    if (!input.trim() || loading) return;
-    const msg = input.trim();
-    setInput("");
-    setMessages(prev => [...prev, { role: "user", content: msg }]);
-    getCoachAdvice(msg);
-  };
-
-  useEffect(() => {
-    if (open && messages.length === 0) {
-      getCoachAdvice("Give me a quick overview of what I should focus on selling first.");
-    }
-  }, [open]);
-
-  if (listings.length < 3) return null;
-
-  return (
-    <>
-      <button className="coach-fab" onClick={() => setOpen(o => !o)}>
-        🎯 Selling Coach
-      </button>
-      {open && (
-        <div className="coach-panel">
-          <div className="coach-header">
-            <div className="coach-title">🎯 Selling Coach</div>
-            <button className="coach-close" onClick={() => setOpen(false)}>×</button>
-          </div>
-          <div className="coach-messages">
-            {messages.length === 0 && loading && (
-              <div className="coach-bubble ai"><div className="spin" style={{ width: 20, height: 20, borderWidth: 2, margin: "0 auto" }} /></div>
-            )}
-            {messages.map((m, i) => (
-              <div key={i} className={`coach-bubble ${m.role === "user" ? "me" : "ai"}`}>{m.content}</div>
-            ))}
-            {loading && messages.length > 0 && (
-              <div className="coach-bubble ai"><div className="spin" style={{ width: 20, height: 20, borderWidth: 2, margin: "0 auto" }} /></div>
-            )}
-          </div>
-          <div className="coach-input-row">
-            <input className="coach-input" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Ask for advice..." disabled={loading} />
-            <button className="coach-send" onClick={send} disabled={!input.trim() || loading}>→</button>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
 // ── Saved listing card ─────────────────────────────────────────────────────
 function SavedCard({ item, index, user, onLoginRequired }) {
   const [open, setOpen] = useState(false);
@@ -554,6 +462,7 @@ function MainApp() {
   const [showSummary, setShowSummary] = useState(false);
   const [user, setUser] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showInterview, setShowInterview] = useState(false);
   const fileInputRef = useRef(null);
   const historyRef = useRef([]);
   const dragRef = useRef(null);
@@ -599,14 +508,14 @@ function MainApp() {
     }
   };
 
-  const saveListing = async (userId, listingResult, thumbUrl) => {
+  const saveListing = async (userId, listingResult, thumbDataUrl) => {
     await supabase.from("listings").insert({
       user_id: userId, item_name: listingResult.itemName, asking_price: listingResult.askingPrice,
       platform: listingResult.platform, bucket: listingResult.bucket, title: listingResult.title,
       description: listingResult.description, platform_reason: listingResult.platformReason,
       confidence: listingResult.confidence, estimated_value_low: listingResult.estimatedValue?.low,
       estimated_value_high: listingResult.estimatedValue?.high, tips: listingResult.tips,
-      diamond_alert: listingResult.diamondAlert, thumb_url: thumbUrl,
+      diamond_alert: listingResult.diamondAlert, thumb_url: thumbDataUrl,
     });
     await supabase.from("profiles").update({ credits: credits - 1 }).eq("id", userId);
   };
@@ -650,6 +559,12 @@ function MainApp() {
 
   const analyze = async () => {
     if (!photos.length) return;
+    setShowInterview(true);
+  };
+
+  const runAnalysis = async (context) => {
+    setShowInterview(false);
+    setSellerContext(context);
     setHeroVisible(false); setLoading(true); setError(null); setPhase("analyzing");
     currentThumbRef.current = photos[0]?.url || null;
     try {
@@ -679,17 +594,27 @@ function MainApp() {
     finally { setLoading(false); }
   };
 
+  const getThumbDataUrl = (photoUrl) => new Promise((res) => {
+    const img = new Image();
+    img.onload = () => {
+      const SIZE = 120;
+      let w = img.width, h = img.height;
+      if (w > h) { h = Math.round(h * SIZE / w); w = SIZE; }
+      else { w = Math.round(w * SIZE / h); h = SIZE; }
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      res(canvas.toDataURL("image/jpeg", 0.7));
+    };
+    img.onerror = () => res(null);
+    img.src = photoUrl;
+  });
+
   const uploadThumb = async (userId, dataUrl) => {
-    if (!dataUrl || !dataUrl.startsWith("blob:")) return null;
-    try {
-      const response = await fetch(dataUrl);
-      const blob = await response.blob();
-      const filename = `${userId}/${Date.now()}.jpg`;
-      const { error } = await supabase.storage.from("thumbnails").upload(filename, blob, { contentType: "image/jpeg" });
-      if (error) return null;
-      const { data } = supabase.storage.from("thumbnails").getPublicUrl(filename);
-      return data.publicUrl;
-    } catch { return null; }
+    if (!dataUrl) return null;
+    // Convert blob URL to small base64 data URL for storage
+    const thumbDataUrl = await getThumbDataUrl(dataUrl);
+    return thumbDataUrl;
   };
 
   const saveAndAddAnother = async () => {
@@ -757,6 +682,17 @@ function MainApp() {
     <div className="app">
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} onLogin={() => setShowAuthModal(false)} />}
 
+      {showInterview && (
+        <div className="modal-overlay" onClick={() => setShowInterview(false)}>
+          <div className="modal-card interview-modal" onClick={e => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowInterview(false)}>×</button>
+            <div className="interview-modal-title">Quick questions before we analyze</div>
+            <div className="interview-modal-sub">Helps us give you the best recommendation for this item</div>
+            <SellerInterview onComplete={runAnalysis} compact />
+          </div>
+        </div>
+      )}
+
       <nav className="navbar">
         <div className="nav-logo">SellYourStuff<span>.ai</span></div>
         <div className="nav-links">
@@ -791,14 +727,12 @@ function MainApp() {
       <div className="main-layout">
         <div className="left-panel">
           <div className="panel-header">
-            <h1 className="panel-title">{phase === "interview" ? "New Listing" : "New Listing"}</h1>
-            <p className="panel-sub">{phase === "interview" ? "Answer three quick questions so we can tailor every recommendation to you." : "Upload up to 6 photos — we'll price it, write the listing, and tell you where to post it."}</p>
-            {phase !== "interview" && credits <= 3 && credits > 0 && (
+            <h1 className="panel-title">New Listing</h1>
+            <p className="panel-sub">Upload up to 6 photos — we'll price it, write the listing, and tell you where to post it.</p>
+            {credits <= 3 && credits > 0 && (
               <div className="credits-badge">{credits} free listing{credits !== 1 ? "s" : ""} remaining</div>
             )}
           </div>
-
-          {phase === "interview" && <SellerInterview onComplete={(ctx) => { setSellerContext(ctx); setPhase("upload"); }} />}
 
           {phase === "upload" && (
             <div className="card">
@@ -948,16 +882,17 @@ function MainApp() {
                   <div className="sample-cta">Upload your first item to build your real inventory →</div>
                 </div>
               ) : (
-                savedListings.map((item, i) => <SavedCard key={item.id} item={item} index={i} user={user} onLoginRequired={() => setShowAuthModal(true)} />)
+                <>
+                  {savedListings.map((item, i) => <SavedCard key={item.id} item={item} index={i} user={user} onLoginRequired={() => setShowAuthModal(true)} />)}
+                  {user && savedListings.length >= 1 && (
+                    <SellingCoach listings={savedListings} sellerContext={sellerContext} />
+                  )}
+                </>
               )}
             </>
           )}
         </div>
       </div>
-
-      {user && savedListings.length >= 3 && (
-        <SellingCoach listings={savedListings} sellerContext={sellerContext} />
-      )}
 
       <footer className="footer">
         <div className="footer-inner">
@@ -965,6 +900,97 @@ function MainApp() {
           <Link to="/blog" className="footer-link">Tips &amp; Guides</Link>
         </div>
       </footer>
+    </div>
+  );
+}
+
+// ── Selling Coach (inline panel) ──────────────────────────────────────────
+function SellingCoach({ listings, sellerContext }) {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  const getCoachAdvice = async (userMessage) => {
+    setLoading(true);
+    const listingSummary = listings.map(l =>
+      `${l.result.itemName}: $${l.result.askingPrice}, ${l.result.bucket}, ${l.result.platform}`
+    ).join("\n");
+    const systemPrompt = `You are a friendly selling coach. Seller: urgency=${sellerContext.urgency}, logistics=${sellerContext.logistics}, effort=${sellerContext.effort}. Listings:\n${listingSummary}\nBe concise, warm, practical. Under 120 words.`;
+    try {
+      const response = await fetch("/api/claude", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "claude-opus-4-5", max_tokens: 300, system: systemPrompt, messages: [...messages.map(m => ({ role: m.role, content: m.content })), { role: "user", content: userMessage }] }),
+      });
+      const data = await response.json();
+      const text = data.content.filter(b => b.type === "text").map(b => b.text).join("");
+      setMessages(prev => [...prev, { role: "assistant", content: text }]);
+    } catch { setMessages(prev => [...prev, { role: "assistant", content: "Something went wrong. Try again!" }]); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { if (!initialized) { setInitialized(true); getCoachAdvice("Give me a quick tip on what to focus on first."); } }, []);
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  const send = () => {
+    if (!input.trim() || loading) return;
+    const msg = input.trim(); setInput("");
+    setMessages(prev => [...prev, { role: "user", content: msg }]);
+    getCoachAdvice(msg);
+  };
+
+  return (
+    <div className="coach-inline">
+      <div className="coach-inline-header">
+        <span className="coach-inline-title">🎯 Selling Coach</span>
+        <span className="coach-inline-sub">Ask anything about your listings</span>
+      </div>
+      <div className="coach-inline-messages">
+        {messages.length === 0 && loading && (<div className="coach-bubble ai"><div className="spin" style={{ width: 18, height: 18, borderWidth: 2, margin: "0 auto" }} /></div>)}
+        {messages.map((m, i) => (<div key={i} className={`coach-bubble ${m.role === "user" ? "me" : "ai"}`}>{m.content}</div>))}
+        {loading && messages.length > 0 && (<div className="coach-bubble ai"><div className="spin" style={{ width: 18, height: 18, borderWidth: 2, margin: "0 auto" }} /></div>)}
+        <div ref={messagesEndRef} />
+      </div>
+      <div className="coach-input-row">
+        <input className="coach-input" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Ask your Selling Coach..." disabled={loading} />
+        <button className="coach-send" onClick={send} disabled={!input.trim() || loading}>→</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Seller interview ───────────────────────────────────────────────────────
+function SellerInterview({ onComplete, compact }) {
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState({ urgency: null, logistics: null, effort: null });
+  const questions = [
+    { key: "urgency", question: "How fast do you want to sell this?", options: [{ value: "this_week", label: "This week", sub: "Price to move fast" }, { value: "within_a_month", label: "Within a month", sub: "Balanced approach" }, { value: "no_rush", label: "No rush", sub: "Maximize what I get" }] },
+    { key: "logistics", question: "Local pickup or can you ship?", options: [{ value: "local_only", label: "Local only", sub: "No shipping" }, { value: "can_ship", label: "I can ship", sub: "Open to online buyers" }, { value: "both", label: "Either works", sub: "Most flexible" }] },
+    { key: "effort", question: "How much effort can you put in?", options: [{ value: "minimal", label: "Minimal", sub: "Just get it sold" }, { value: "moderate", label: "Moderate", sub: "Happy to answer questions" }, { value: "happy_to_invest", label: "Invest time", sub: "I want the best price" }] },
+  ];
+  const current = questions[step];
+  const pick = (value) => {
+    const newAnswers = { ...answers, [current.key]: value };
+    setAnswers(newAnswers);
+    if (step < questions.length - 1) setStep(step + 1);
+    else onComplete(newAnswers);
+  };
+  return (
+    <div className={compact ? "interview-compact" : "card interview-card"}>
+      <div className="interview-progress">{questions.map((_, i) => <div key={i} className={`interview-dot ${i <= step ? "active" : ""}`} />)}</div>
+      <div className="interview-q">{current.question}</div>
+      <div className="interview-options">
+        {current.options.map(opt => (
+          <button key={opt.value} className="interview-option" onClick={() => pick(opt.value)}>
+            <div className="interview-option-label">{opt.label}</div>
+            <div className="interview-option-sub">{opt.sub}</div>
+          </button>
+        ))}
+      </div>
+      <div className="interview-skip">
+        <button className="interview-skip-btn" onClick={() => onComplete({ urgency: "within_a_month", logistics: "both", effort: "moderate" })}>Skip</button>
+      </div>
     </div>
   );
 }
