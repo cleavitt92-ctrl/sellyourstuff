@@ -406,46 +406,11 @@ function SessionSummary({ listings, onAddMore }) {
   );
 }
 
-// ── Seller interview ───────────────────────────────────────────────────────
-function SellerInterview({ onComplete }) {
-  const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState({ urgency: null, logistics: null, effort: null });
-  const questions = [
-    { key: "urgency", question: "How fast do you want to sell?", options: [{ value: "this_week", label: "This week", sub: "Price to move fast" }, { value: "within_a_month", label: "Within a month", sub: "Balanced approach" }, { value: "no_rush", label: "No rush", sub: "Maximize what I get" }] },
-    { key: "logistics", question: "Can you meet buyers locally or ship items?", options: [{ value: "local_only", label: "Local only", sub: "Pickup only, no shipping" }, { value: "can_ship", label: "I can ship", sub: "Open to eBay and online buyers" }, { value: "both", label: "Either works", sub: "Most flexible" }] },
-    { key: "effort", question: "How much effort can you put in per item?", options: [{ value: "minimal", label: "Minimal", sub: "Just get it sold" }, { value: "moderate", label: "Moderate", sub: "Happy to answer a question or two" }, { value: "happy_to_invest", label: "Happy to invest", sub: "I want the best price" }] },
-  ];
-  const current = questions[step];
-  const pick = (value) => {
-    const newAnswers = { ...answers, [current.key]: value };
-    setAnswers(newAnswers);
-    if (step < questions.length - 1) setStep(step + 1);
-    else onComplete(newAnswers);
-  };
-  return (
-    <div className="card interview-card">
-      <div className="interview-progress">{questions.map((_, i) => <div key={i} className={`interview-dot ${i <= step ? "active" : ""}`} />)}</div>
-      <div className="interview-q">{current.question}</div>
-      <div className="interview-options">
-        {current.options.map(opt => (
-          <button key={opt.value} className="interview-option" onClick={() => pick(opt.value)}>
-            <div className="interview-option-label">{opt.label}</div>
-            <div className="interview-option-sub">{opt.sub}</div>
-          </button>
-        ))}
-      </div>
-      <div className="interview-skip">
-        <button className="interview-skip-btn" onClick={() => onComplete({ urgency: "within_a_month", logistics: "both", effort: "moderate" })}>Skip and use defaults</button>
-      </div>
-    </div>
-  );
-}
-
 const ADMIN_EMAILS = ["cleavitt92@gmail.com", "jleavitt@rfam.net"];
 
 // ── Main app ───────────────────────────────────────────────────────────────
 function MainApp() {
-  const [phase, setPhase] = useState("interview");
+  const [phase, setPhase] = useState("upload");
   const [sellerContext, setSellerContext] = useState({ urgency: "within_a_month", logistics: "both", effort: "moderate" });
   const [photos, setPhotos] = useState([]);
   const [chatMessages, setChatMessages] = useState([]);
