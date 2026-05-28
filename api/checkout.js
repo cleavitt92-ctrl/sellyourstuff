@@ -3,9 +3,9 @@ import Stripe from "stripe";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const PRICES = {
-  price_5pack: { name: "5 Listings Pack", amount: 799, currency: "usd", mode: "payment" },
-  price_20pack: { name: "20 Listings Pack", amount: 1999, currency: "usd", mode: "payment" },
-  price_monthly: { name: "Unlimited Monthly", amount: 1499, currency: "usd", mode: "subscription" },
+  "price_1TbKkoLr6wY7Jbr15EyFxLe4": { name: "5 Listings Pack", amount: 799, currency: "usd", mode: "payment" },
+  "price_1TbKlDLr6wY7Jbr1x7AluGHw": { name: "20 Listings Pack", amount: 1999, currency: "usd", mode: "payment" },
+  "price_1TbKlkLr6wY7Jbr1g8aJjfBW": { name: "Unlimited Monthly", amount: 1499, currency: "usd", mode: "subscription" },
 };
 
 export default async function handler(req, res) {
@@ -13,16 +13,12 @@ export default async function handler(req, res) {
   const { priceId, mode } = req.body;
   const price = PRICES[priceId];
   if (!price) return res.status(400).json({ error: "Invalid price ID" });
+
   try {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [{
-        price_data: {
-          currency: price.currency,
-          product_data: { name: price.name },
-          unit_amount: price.amount,
-          ...(mode === "subscription" ? { recurring: { interval: "month" } } : {}),
-        },
+        price: priceId,
         quantity: 1,
       }],
       mode,
