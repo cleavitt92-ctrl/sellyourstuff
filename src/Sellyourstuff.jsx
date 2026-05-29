@@ -486,23 +486,32 @@ function MainApp() {
   };
 
   const toBase64 = (file) => new Promise((res, rej) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      const MAX = 1024;
-      let w = img.width, h = img.height;
-      if (w > MAX || h > MAX) {
-        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
-        else { w = Math.round(w * MAX / h); h = MAX; }
-      }
-      const canvas = document.createElement("canvas");
-      canvas.width = w; canvas.height = h;
-      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-      URL.revokeObjectURL(url);
-      res(canvas.toDataURL("image/jpeg", 0.8).split(",")[1]);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const MAX = 1024;
+          let w = img.width, h = img.height;
+          if (w > MAX || h > MAX) {
+            if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+            else { w = Math.round(w * MAX / h); h = MAX; }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+          res(dataUrl.split(",")[1]);
+        } catch (err) { rej(err); }
+      };
+      img.onerror = () => rej(new Error("Image load failed"));
+      img.src = e.target.result;
     };
-    img.onerror = rej;
-    img.src = url;
+    reader.onerror = () => rej(new Error("File read failed"));
+    reader.readAsDataURL(file);
   });
 
   const addPhotos = (files) => {
@@ -531,16 +540,25 @@ function MainApp() {
     setShowInterview(false);
     setSellerContext(context);
     setHeroVisible(false); setLoading(true); setError(null); setPhase("analyzing");
-    currentThumbRef.current = photos[0]?.url || null;
     try {
-      const imageBlocks = await Promise.all(photos.map(async p => ({ type: "image", source: { type: "base64", media_type: p.file.type || "image/jpeg", data: await toBase64(p.file) } })));
+      const imageBlocks = await Promise.all(photos.map(async p => {
+        const b64 = await toBase64(p.file);
+        return { type: "image", source: { type: "base64", media_type: "image/jpeg", data: b64 } };
+      }));
+      // Store first photo as compressed base64 for thumbnail
+      const firstB64 = imageBlocks[0]?.source?.data;
+      currentThumbRef.current = firstB64 ? `data:image/jpeg;base64,${firstB64.slice(0, 2000)}` : null;
       const firstMsg = { role: "user", content: [...imageBlocks, { type: "text", text: "I want to sell this item. What is it worth and how should I list it?" }] };
       historyRef.current = [firstMsg];
       const parsed = await callClaude(historyRef.current);
       historyRef.current.push({ role: "assistant", content: JSON.stringify(parsed) });
       if (parsed.type === "question") { setChatMessages([{ role: "assistant", data: parsed }]); setPhase("chat"); }
       else { setResult(parsed); setPhase("result"); }
-    } catch (e) { setError("Couldn't analyze the photos. Please try again."); setPhase("upload"); }
+    } catch (e) {
+      console.error("Analysis error:", e.message);
+      setError(`Couldn't analyze the photos: ${e.message}. Please try again.`);
+      setPhase("upload");
+    }
     finally { setLoading(false); }
   };
 
@@ -559,20 +577,26 @@ function MainApp() {
     finally { setLoading(false); }
   };
 
-  const getThumbDataUrl = (photoUrl) => new Promise((res) => {
-    const img = new Image();
-    img.onload = () => {
-      const SIZE = 120;
-      let w = img.width, h = img.height;
-      if (w > h) { h = Math.round(h * SIZE / w); w = SIZE; }
-      else { w = Math.round(w * SIZE / h); h = SIZE; }
-      const canvas = document.createElement("canvas");
-      canvas.width = w; canvas.height = h;
-      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-      res(canvas.toDataURL("image/jpeg", 0.7));
-    };
-    img.onerror = () => res(null);
-    img.src = photoUrl;
+  const getThumbDataUrl = (file) => new Promise((res) => {
+    if (!file) return res(null);
+    // If it's already a data URL or http URL, use it directly
+    if (typeof file === "string") {
+      const img = new Image();
+      img.onload = () => {
+        const SIZE = 120;
+        let w = img.width, h = img.height;
+        if (w > h) { h = Math.round(h * SIZE / w); w = SIZE; }
+        else { w = Math.round(w * SIZE / h); h = SIZE; }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        res(canvas.toDataURL("image/jpeg", 0.7));
+      };
+      img.onerror = () => res(null);
+      img.src = file;
+      return;
+    }
+    res(null);
   });
 
   const uploadThumb = async (userId, dataUrl) => {
