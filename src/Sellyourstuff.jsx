@@ -975,13 +975,13 @@ Format every response with:
                   <div className="paywall-ppu">$1.60 per listing</div>
                 </div>
                 <div className="paywall-option paywall-option-20pack" onClick={() => handleStripeCheckout("price_1TbKlDLr6wY7Jbr1x7AluGHw", "payment")}>
-                  <div className="paywall-popular">BEST VALUE</div>
                   <div className="paywall-option-title">Clearing out a room or garage</div>
                   <div className="paywall-option-desc">20 more listings</div>
                   <div className="paywall-option-price">$19.99 <span>one time</span></div>
                   <div className="paywall-ppu">$1 per listing</div>
                 </div>
                 <div className="paywall-option paywall-option-monthly" onClick={() => handleStripeCheckout("price_1TbKlkLr6wY7Jbr1g8aJjfBW", "subscription")}>
+                  <div className="paywall-popular">BEST VALUE</div>
                   <div className="paywall-option-title">Selling regularly</div>
                   <div className="paywall-option-desc">Unlimited listings</div>
                   <div className="paywall-option-price">$14.99 <span>/ month</span></div>
