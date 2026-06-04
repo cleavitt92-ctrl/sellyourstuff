@@ -850,6 +850,7 @@ Format every response with:
           <Link to="/blog" className="nav-link">Tips &amp; Guides</Link>
           {user ? (
             <div className="nav-user">
+              {credits !== 9999 && <button className="nav-upgrade" onClick={() => setPhase("paywall")}>Upgrade</button>}
               <span className="nav-email">{user.email?.split("@")[0]}</span>
               <button className="nav-signout" onClick={signOut}>Sign out</button>
             </div>
@@ -1105,7 +1106,10 @@ Format every response with:
                         <div className="coach-locked-title">Selling Coach</div>
                         <div className="coach-locked-pitch">Tell us what you have. We'll tell you what's actually worth selling — and what to do first.</div>
                         <div className="coach-locked-desc">Analyzes your full inventory, spots the high-value items, and gives you a prioritized action plan so you don't waste time on stuff that won't sell.</div>
-                        <button className="coach-locked-btn" onClick={() => setShowAuthModal(true)}>
+                        <button className="coach-locked-btn" onClick={() => {
+                          if (user) setPhase("paywall");
+                          else setShowAuthModal(true);
+                        }}>
                           {user ? "Unlock with any paid plan →" : "Sign in to unlock →"}
                         </button>
                       </div>
