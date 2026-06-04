@@ -203,6 +203,7 @@ const bucketLabels = {
   local: { label: "Sell Locally", color: "#1877f2", icon: "📍" },
   specialist: { label: "Sell Online", color: "#e53238", icon: "🌐" },
   appraise: { label: "Get Appraised First", color: "#7c5cbf", icon: "🔍" },
+  draft: { label: "Draft — Needs Photo", color: "#94a3b8", icon: "📝" },
 };
 
 // ── Auth modal ─────────────────────────────────────────────────────────────
@@ -327,35 +328,43 @@ function SavedCard({ item, index, user, onLoginRequired }) {
       </div>
       {open && (
         <div className="saved-body">
-          <div className="info-box"><strong>Recommendation</strong>{item.result.platformReason}</div>
-          {item.result.diamondAlert && (<div className="diamond-box"><span className="diamond-icon">💎</span><div className="diamond-body"><strong>Might be worth more</strong>{item.result.diamondAlert}</div></div>)}
-          {item.result.bucket !== "donate" && item.result.bucket !== "appraise" && (
+          {item.isDraft || item.result.bucket === "draft" ? (
+            <div className="draft-complete-prompt">
+              <div className="draft-complete-icon">📷</div>
+              <div className="draft-complete-text">Add a photo to complete this listing</div>
+              <div className="draft-complete-sub">Once you have a photo, upload it to get the full appraisal and ready-to-post listing.</div>
+            </div>
+          ) : (
             <>
-              <div className="sec-label">Your listing</div>
-              <div className="listing-box">
-                <div className="listing-title">{item.result.title}</div>
-                {user ? (
-                  <div className="listing-desc">{item.result.description}</div>
-                ) : (
-                  <>
-                    <div className="listing-desc">{item.result.description.slice(0, 120)}...</div>
-                    <div className="listing-blur-wrap">
-                      <div className="listing-blur" />
-                      <button className="listing-unlock-btn" onClick={() => onLoginRequired()}>
-                        🔓 Sign in free to unlock full listing
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-              <div className="post-section">
-                <button className="btn-post btn-post-fb" onClick={postTo("facebook", "https://www.facebook.com/marketplace/create/item")}><span>📘</span> Post on Facebook Marketplace</button>
-                <button className="btn-post btn-post-ebay" onClick={postTo("ebay", `https://www.ebay.com/sell/selectformat?title=${encodeURIComponent(item.result.title)}`)}><span>🛒</span> Post on eBay</button>
-                <button className="btn-post btn-post-offerup" onClick={postTo("offerup", "https://offerup.com/sell")}><span>🟢</span> Post on OfferUp</button>
-                <button className="btn-post btn-post-olx" onClick={postTo("olx", "https://www.olx.com")}><span>🟣</span> Post on OLX</button>
-                {postInstructions && (<div className="instructions-box"><strong>Listing copied! Paste it into the description on {postInstructions}.</strong><ol className="instructions-steps"><li><span className="step-num">1</span>The site opened in a new tab</li><li><span className="step-num">2</span>Click in the description box and press Ctrl+V to paste</li><li><span className="step-num">3</span>Set the price to ${item.result.askingPrice} and publish!</li></ol></div>)}
-              </div>
-              <button className="btn-ghost" onClick={copyListing} style={copied ? { borderColor: "#2d7a4f", color: "#2d7a4f" } : {}}>{copied ? "✓ Copied!" : "Copy Listing"}</button>
+              <div className="info-box"><strong>Recommendation</strong>{item.result.platformReason}</div>
+              {item.result.diamondAlert && (<div className="diamond-box"><span className="diamond-icon">💎</span><div className="diamond-body"><strong>Might be worth more</strong>{item.result.diamondAlert}</div></div>)}
+              {item.result.bucket !== "donate" && item.result.bucket !== "appraise" && (
+                <>
+                  <div className="sec-label">Your listing</div>
+                  <div className="listing-box">
+                    <div className="listing-title">{item.result.title}</div>
+                    {user ? (
+                      <div className="listing-desc">{item.result.description}</div>
+                    ) : (
+                      <>
+                        <div className="listing-desc">{item.result.description.slice(0, 120)}...</div>
+                        <div className="listing-blur-wrap">
+                          <div className="listing-blur" />
+                          <button className="listing-unlock-btn" onClick={() => onLoginRequired()}>🔓 Sign in free to unlock full listing</button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <div className="post-section">
+                    <button className="btn-post btn-post-fb" onClick={postTo("facebook", "https://www.facebook.com/marketplace/create/item")}><span>📘</span> Post on Facebook Marketplace</button>
+                    <button className="btn-post btn-post-ebay" onClick={postTo("ebay", `https://www.ebay.com/sell/selectformat?title=${encodeURIComponent(item.result.title)}`)}><span>🛒</span> Post on eBay</button>
+                    <button className="btn-post btn-post-offerup" onClick={postTo("offerup", "https://offerup.com/sell")}><span>🟢</span> Post on OfferUp</button>
+                    <button className="btn-post btn-post-olx" onClick={postTo("olx", "https://www.olx.com")}><span>🟣</span> Post on OLX</button>
+                    {postInstructions && (<div className="instructions-box"><strong>Listing copied! Paste it into the description on {postInstructions}.</strong><ol className="instructions-steps"><li><span className="step-num">1</span>The site opened in a new tab</li><li><span className="step-num">2</span>Click in the description box and press Ctrl+V to paste</li><li><span className="step-num">3</span>Set the price to ${item.result.askingPrice} and publish!</li></ol></div>)}
+                  </div>
+                  <button className="btn-ghost" onClick={copyListing} style={copied ? { borderColor: "#2d7a4f", color: "#2d7a4f" } : {}}>{copied ? "✓ Copied!" : "Copy Listing"}</button>
+                </>
+              )}
             </>
           )}
         </div>
@@ -428,6 +437,7 @@ function MainApp() {
   const [user, setUser] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showInterview, setShowInterview] = useState(false);
+  const [draftText, setDraftText] = useState("");
   const fileInputRef = useRef(null);
   const historyRef = useRef([]);
   const dragRef = useRef(null);
@@ -638,7 +648,42 @@ function MainApp() {
 
   const resetUpload = () => {
     setPhotos([]); setChatMessages([]); setInputText(""); setResult(null);
-    setError(null); setPostInstructions(null); historyRef.current = []; currentThumbRef.current = null;
+    setError(null); setPostInstructions(null); setDraftText("");
+    historyRef.current = []; currentThumbRef.current = null;
+  };
+
+  const saveDraft = async (text) => {
+    if (!user) { setShowAuthModal(true); return; }
+    if (!text.trim()) return;
+    const draft = {
+      id: Math.random(),
+      isDraft: true,
+      thumbUrl: null,
+      result: {
+        itemName: text,
+        askingPrice: 0,
+        platform: null,
+        bucket: "draft",
+        title: "",
+        description: "",
+        platformReason: "Draft — add a photo to complete this listing",
+        confidence: "low",
+        estimatedValue: { low: 0, high: 0 },
+        tips: [],
+        diamondAlert: null,
+      }
+    };
+    setSavedListings(prev => [draft, ...prev]);
+    if (user) {
+      await supabase.from("listings").insert({
+        user_id: user.id, item_name: text, asking_price: 0,
+        platform: "Draft", bucket: "draft", title: "",
+        description: "", platform_reason: "Draft — add a photo to complete",
+        confidence: "low", estimated_value_low: 0, estimated_value_high: 0,
+        tips: [], diamond_alert: null, thumb_url: null,
+      });
+    }
+    setDraftText("");
   };
 
   const handleStripeCheckout = async (priceId, mode) => {
@@ -700,14 +745,14 @@ function MainApp() {
       {heroVisible && (
         <div className="hero">
           <div className="hero-inner">
-            <h1 className="hero-title">Turn your pile of stuff into money. We'll tell you how.</h1>
+            <h1 className="hero-title">You have a basement full of stuff. We'll tell you what's actually worth selling.</h1>
             <p className="hero-subhead">And we'll make sure you don't miss the diamond in the rough that makes it all worth it.</p>
-            <p className="hero-desc">Take photos of your stuff: furniture, collectibles, electronics, clothes, tools, random junk. SellYourStuff.ai figures out what each thing is worth and the smartest way to move it, making listing and selling fast. Whether it's eBay, Facebook Marketplace, local listing, or even a garage sale. We'll make it easy for you!</p>
+            <p className="hero-desc">Most people leave hundreds of dollars behind because they don't know where to start. Take photos of anything: furniture, collectibles, electronics, clothes, tools, random junk. SellYourStuff.ai figures out what each thing is worth, whether it's worth your time to sell, and the fastest way to move it. eBay, Facebook Marketplace, local listing, or just donate it and save yourself the weekend. We'll make the call for you.</p>
             <div className="hero-badges">
               <span className="hero-badge">📷 Just upload photos</span>
-              <span className="hero-badge">💰 AI pricing</span>
-              <span className="hero-badge">💎 Spot the high-value items</span>
-              <span className="hero-badge">🎯 Online, local, or garage sale</span>
+              <span className="hero-badge">💎 Find the hidden value</span>
+              <span className="hero-badge">🎯 We tell you what to sell first</span>
+              <span className="hero-badge">⏱️ Under 60 seconds per item</span>
             </div>
           </div>
         </div>
@@ -734,6 +779,23 @@ function MainApp() {
               {photos.length > 0 && (<><div className="photo-grid">{photos.map((p, i) => (<div key={p.id} className="thumb"><img src={p.url} alt="" /><button className="thumb-x" onClick={e => { e.stopPropagation(); setPhotos(prev => prev.filter((_, j) => j !== i)); }}>×</button></div>))}</div><div className="photo-count">{photos.length} photo{photos.length !== 1 ? "s" : ""} ready</div></>)}
               {error && <div className="err">{error}</div>}
               <button className="btn-primary" disabled={!photos.length || loading} onClick={analyze}>Analyze &amp; Price It →</button>
+
+              <div className="draft-divider"><span>or save for later</span></div>
+              <div className="draft-row">
+                <input
+                  className="draft-input"
+                  value={draftText}
+                  onChange={e => setDraftText(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && saveDraft(draftText)}
+                  placeholder="Describe what you have, e.g. old guitar, vintage lamp..."
+                />
+                <button className="draft-save-btn" onClick={() => saveDraft(draftText)} disabled={!draftText.trim()}>
+                  Save Draft
+                </button>
+              </div>
+              {!user && draftText && (
+                <div className="draft-login-hint">Sign in to save drafts across devices</div>
+              )}
             </div>
           )}
 
