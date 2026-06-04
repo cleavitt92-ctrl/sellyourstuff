@@ -8,9 +8,9 @@ const supabase = createClient(
 );
 
 const PRICE_CREDITS = {
-  "price_1TbKkoLr6wY7Jbr15EyFxLe4": 5,   // 5 pack
-  "price_1TbKlDLr6wY7Jbr1x7AluGHw": 20,  // 20 pack
-  "price_1TbKlkLr6wY7Jbr1g8aJjfBW": 9999, // unlimited monthly
+  "price_1TeguULr6wY7Jbr12bWM3VsZ": 5,   // 5 pack
+  "price_1TegumLr6wY7Jbr1Ie6SCcjU": 20,  // 20 pack
+  "price_1TegvALr6wY7Jbr1k9rOVW4v": 9999, // unlimited monthly
 };
 
 export default async function handler(req, res) {

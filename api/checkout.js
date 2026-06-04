@@ -3,9 +3,9 @@ import Stripe from "stripe";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const PRICES = {
-  "price_1TbKkoLr6wY7Jbr15EyFxLe4": { name: "5 Listings Pack", amount: 799, currency: "usd", mode: "payment" },
-  "price_1TbKlDLr6wY7Jbr1x7AluGHw": { name: "20 Listings Pack", amount: 1999, currency: "usd", mode: "payment" },
-  "price_1TbKlkLr6wY7Jbr1g8aJjfBW": { name: "Unlimited Monthly", amount: 1499, currency: "usd", mode: "subscription" },
+  "price_1TeguULr6wY7Jbr12bWM3VsZ": { name: "5 Listings Pack", amount: 799, currency: "usd", mode: "payment" },
+  "price_1TegumLr6wY7Jbr1Ie6SCcjU": { name: "20 Listings Pack", amount: 1999, currency: "usd", mode: "payment" },
+  "price_1TegvALr6wY7Jbr1k9rOVW4v": { name: "Unlimited Monthly", amount: 1499, currency: "usd", mode: "subscription" },
 };
 
 export default async function handler(req, res) {
@@ -17,10 +17,7 @@ export default async function handler(req, res) {
   try {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
-      line_items: [{
-        price: priceId,
-        quantity: 1,
-      }],
+      line_items: [{ price: priceId, quantity: 1 }],
       mode,
       success_url: `${req.headers.origin}/?payment=success&plan=${priceId}`,
       cancel_url: `${req.headers.origin}/?payment=cancelled`,

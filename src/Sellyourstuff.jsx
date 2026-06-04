@@ -968,19 +968,19 @@ Format every response with:
               <div className="paywall-sub">You've used your 3 free listings. Keep going!</div>
               <p className="paywall-tip">One good sale covers the cost of any plan.</p>
               <div className="paywall-options">
-                <div className="paywall-option paywall-option-pack" onClick={() => handleStripeCheckout("price_1TbKkoLr6wY7Jbr15EyFxLe4", "payment")}>
+                <div className="paywall-option paywall-option-pack" onClick={() => handleStripeCheckout("price_1TeguULr6wY7Jbr12bWM3VsZ", "payment")}>
                   <div className="paywall-option-title">Got a few things to sell</div>
                   <div className="paywall-option-desc">5 more listings</div>
                   <div className="paywall-option-price">$7.99 <span>one time</span></div>
                   <div className="paywall-ppu">$1.60 per listing</div>
                 </div>
-                <div className="paywall-option paywall-option-20pack" onClick={() => handleStripeCheckout("price_1TbKlDLr6wY7Jbr1x7AluGHw", "payment")}>
+                <div className="paywall-option paywall-option-20pack" onClick={() => handleStripeCheckout("price_1TegumLr6wY7Jbr1Ie6SCcjU", "payment")}>
                   <div className="paywall-option-title">Clearing out a room or garage</div>
                   <div className="paywall-option-desc">20 more listings</div>
                   <div className="paywall-option-price">$19.99 <span>one time</span></div>
                   <div className="paywall-ppu">$1 per listing</div>
                 </div>
-                <div className="paywall-option paywall-option-monthly" onClick={() => handleStripeCheckout("price_1TbKlkLr6wY7Jbr1g8aJjfBW", "subscription")}>
+                <div className="paywall-option paywall-option-monthly" onClick={() => handleStripeCheckout("price_1TegvALr6wY7Jbr1k9rOVW4v", "subscription")}>
                   <div className="paywall-popular">BEST VALUE</div>
                   <div className="paywall-option-title">Selling regularly</div>
                   <div className="paywall-option-desc">Unlimited listings</div>
