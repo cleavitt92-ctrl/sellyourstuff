@@ -430,7 +430,11 @@ function MainApp() {
   const [copied, setCopied] = useState(false);
   const [postInstructions, setPostInstructions] = useState(null);
   const [savedListings, setSavedListings] = useState([]);
-  const [credits, setCredits] = useState(3);
+  const [credits, setCredits] = useState(() => {
+    // Non-logged-in users get 1 free full listing
+    // Logged-in users get 3 (set by loadUserData)
+    return 1;
+  });
   const [stripeLoading, setStripeLoading] = useState(false);
   const [heroVisible, setHeroVisible] = useState(() => localStorage.getItem("sysHeroSeen") !== "true");
   const [showSummary, setShowSummary] = useState(false);
@@ -446,6 +450,7 @@ function MainApp() {
   const [textChatLoading, setTextChatLoading] = useState(false);
   const [showTextChat, setShowTextChat] = useState(false);
   const fileInputRef = useRef(null);
+  const textChatPhotoRef = useRef(null);
   const historyRef = useRef([]);
   const dragRef = useRef(null);
   const currentThumbRef = useRef(null);
@@ -469,7 +474,8 @@ function MainApp() {
       setCredits(9999);
     } else {
       const { data: profile } = await supabase.from("profiles").select("credits, plan").eq("id", userId).single();
-      if (profile) setCredits(profile.credits);
+      // New users get 3 credits (default in DB), existing users use their saved count
+      if (profile) setCredits(profile.credits ?? 3);
     }
     const { data: listings } = await supabase.from("listings").select("*").eq("user_id", userId).order("created_at", { ascending: false });
     if (listings?.length) {
@@ -644,12 +650,38 @@ Format every response with:
   };
 
   const saveTextDraft = async () => {
-    if (!user) { setShowAuthModal(true); return; }
+    if (!user) {
+      // Save conversation to localStorage before auth redirect
+      localStorage.setItem("pendingDraft", JSON.stringify({
+        messages: textChatMessages,
+        itemName: textChatMessages.find(m => m.role === "user")?.content || "Unknown item"
+      }));
+      setShowAuthModal(true);
+      return;
+    }
     const firstUserMsg = textChatMessages.find(m => m.role === "user")?.content || "Unknown item";
     await saveDraft(firstUserMsg);
     setShowTextChat(false);
     setTextChatMessages([]);
   };
+
+  // Restore pending draft after login
+  useEffect(() => {
+    if (user) {
+      const pending = localStorage.getItem("pendingDraft");
+      if (pending) {
+        try {
+          const { messages, itemName } = JSON.parse(pending);
+          localStorage.removeItem("pendingDraft");
+          // Restore the conversation
+          setTextChatMessages(messages);
+          setShowTextChat(true);
+          // Auto-save the draft
+          saveDraft(itemName);
+        } catch { localStorage.removeItem("pendingDraft"); }
+      }
+    }
+  }, [user]);
 
   const getThumbDataUrl = (file) => new Promise((res) => {
     if (!file) return res(null);
@@ -682,20 +714,41 @@ Format every response with:
 
   const saveAndAddAnother = async () => {
     if (result) {
+      // If not logged in, save to localStorage and prompt login
+      if (!user) {
+        localStorage.setItem("pendingResult", JSON.stringify({ result, thumbUrl: currentThumbRef.current }));
+        setShowAuthModal(true);
+        return;
+      }
       let thumbUrl = currentThumbRef.current;
-      if (user && thumbUrl) thumbUrl = await uploadThumb(user.id, thumbUrl) || thumbUrl;
+      if (thumbUrl) thumbUrl = await uploadThumb(user.id, thumbUrl) || thumbUrl;
       const newListing = { id: Math.random(), result, thumbUrl };
       setSavedListings(prev => [newListing, ...prev]);
-      if (user) await saveListing(user.id, result, thumbUrl);
-      // Hide hero permanently after first real listing
+      await saveListing(user.id, result, thumbUrl);
       localStorage.setItem("sysHeroSeen", "true");
       setHeroVisible(false);
       const newCredits = credits - 1;
       setCredits(newCredits);
-      if (newCredits <= 0 && !user) { setPhase("paywall"); resetUpload(); return; }
+      if (newCredits <= 0) { setPhase("paywall"); resetUpload(); return; }
     }
     resetUpload(); setPhase("upload");
   };
+
+  // Restore pending result after login
+  useEffect(() => {
+    if (user) {
+      const pending = localStorage.getItem("pendingResult");
+      if (pending) {
+        try {
+          const { result: pendingRes, thumbUrl } = JSON.parse(pending);
+          localStorage.removeItem("pendingResult");
+          setResult(pendingRes);
+          currentThumbRef.current = thumbUrl;
+          setPhase("result");
+        } catch { localStorage.removeItem("pendingResult"); }
+      }
+    }
+  }, [user]);
 
   const saveAndShowSummary = async () => {
     if (result) {
@@ -880,7 +933,24 @@ Format every response with:
                       <button className="coach-send" onClick={sendTextChat} disabled={!textChatInput.trim() || textChatLoading}>→</button>
                     </div>
                     <div className="text-chat-footer">
-                      <button className="text-chat-save-btn" onClick={saveTextDraft}>💾 Save as Draft</button>
+                      <button className="text-chat-photo-btn" onClick={() => textChatPhotoRef.current?.click()}>
+                        📷 Add Photo for Full Listing
+                      </button>
+                      <input
+                        ref={textChatPhotoRef}
+                        type="file"
+                        accept="image/*"
+                        style={{ display: "none" }}
+                        onChange={e => {
+                          if (e.target.files[0]) {
+                            addPhotos([e.target.files[0]]);
+                            setShowTextChat(false);
+                            setTextChatMessages([]);
+                            setShowInterview(true);
+                          }
+                        }}
+                      />
+                      <button className="text-chat-save-btn" onClick={saveTextDraft}>💾 Save Draft</button>
                       <button className="text-chat-close-btn" onClick={() => { setShowTextChat(false); setTextChatMessages([]); setDraftText(""); }}>Start over</button>
                     </div>
                   </div>

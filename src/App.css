@@ -348,3 +348,8 @@ body { background: #f4f7f5; font-family: 'Inter', system-ui, sans-serif; color: 
 .coach-locked-desc { font-size: .83rem; color: #5a7a66; line-height: 1.55; margin-bottom: 1rem; }
 .coach-locked-btn { background: #1a7a4a; color: #fff; border: none; border-radius: 10px; padding: .7rem 1.4rem; font-size: .9rem; font-weight: 600; cursor: pointer; font-family: 'Inter',sans-serif; transition: background .2s; }
 .coach-locked-btn:hover { background: #155e39; }
+
+/* ── TEXT CHAT PHOTO BUTTON ── */
+.text-chat-footer { display: flex; align-items: center; gap: .5rem; margin-top: .5rem; flex-wrap: wrap; }
+.text-chat-photo-btn { background: #f0f9f4; border: 1.5px solid #b8ddc8; border-radius: 8px; padding: .45rem .85rem; font-size: .82rem; font-weight: 600; color: #1a7a4a; cursor: pointer; font-family: 'Inter',sans-serif; transition: all .2s; }
+.text-chat-photo-btn:hover { background: #1a7a4a; color: #fff; }
