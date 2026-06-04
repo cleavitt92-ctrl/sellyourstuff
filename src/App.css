@@ -330,3 +330,21 @@ body { background: #f4f7f5; font-family: 'Inter', system-ui, sans-serif; color: 
 .draft-complete-icon { font-size: 2rem; margin-bottom: .5rem; }
 .draft-complete-text { font-size: .97rem; font-weight: 600; color: #1a2e22; margin-bottom: .3rem; }
 .draft-complete-sub { font-size: .83rem; color: #5a7a66; line-height: 1.5; }
+
+/* ── TEXT APPRAISAL CHAT ── */
+.text-chat-box { background: #f8fbf9; border-radius: 12px; border: 1px solid #dde8e2; overflow: hidden; margin-top: .5rem; }
+.text-chat-messages { max-height: 200px; overflow-y: auto; padding: .85rem 1rem; display: flex; flex-direction: column; gap: .55rem; }
+.text-chat-actions { padding: .75rem 1rem; border-top: 1px solid #dde8e2; background: #fff; }
+.text-chat-footer { display: flex; justify-content: space-between; align-items: center; margin-top: .5rem; }
+.text-chat-save-btn { background: #1a7a4a; color: #fff; border: none; border-radius: 8px; padding: .45rem .9rem; font-size: .82rem; font-weight: 600; cursor: pointer; font-family: 'Inter',sans-serif; transition: background .2s; }
+.text-chat-save-btn:hover { background: #155e39; }
+.text-chat-close-btn { background: none; border: none; font-size: .8rem; color: #5a7a66; cursor: pointer; text-decoration: underline; font-family: 'Inter',sans-serif; }
+
+/* ── SELLING COACH LOCKED ── */
+.coach-locked { background: #fff; border-radius: 16px; border: 1.5px dashed #b8ddc8; padding: 1.5rem; text-align: center; margin-top: .75rem; }
+.coach-locked-icon { font-size: 2rem; margin-bottom: .5rem; }
+.coach-locked-title { font-size: 1rem; font-weight: 700; color: #1a2e22; margin-bottom: .35rem; }
+.coach-locked-pitch { font-size: .9rem; font-weight: 600; color: #1a7a4a; margin-bottom: .5rem; line-height: 1.4; }
+.coach-locked-desc { font-size: .83rem; color: #5a7a66; line-height: 1.55; margin-bottom: 1rem; }
+.coach-locked-btn { background: #1a7a4a; color: #fff; border: none; border-radius: 10px; padding: .7rem 1.4rem; font-size: .9rem; font-weight: 600; cursor: pointer; font-family: 'Inter',sans-serif; transition: background .2s; }
+.coach-locked-btn:hover { background: #155e39; }

@@ -438,6 +438,13 @@ function MainApp() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showInterview, setShowInterview] = useState(false);
   const [draftText, setDraftText] = useState("");
+  const [freeAppraisals, setFreeAppraisals] = useState(() => {
+    return parseInt(localStorage.getItem("freeAppraisals") || "0");
+  });
+  const [textChatMessages, setTextChatMessages] = useState([]);
+  const [textChatInput, setTextChatInput] = useState("");
+  const [textChatLoading, setTextChatLoading] = useState(false);
+  const [showTextChat, setShowTextChat] = useState(false);
   const fileInputRef = useRef(null);
   const historyRef = useRef([]);
   const dragRef = useRef(null);
@@ -585,6 +592,63 @@ function MainApp() {
       else { setChatMessages(prev => [...prev, { role: "assistant", data: parsed }]); }
     } catch { setError("Something went wrong. Try again."); }
     finally { setLoading(false); }
+  };
+
+  const startTextAppraisal = (text) => {
+    if (!text.trim()) return;
+    const newCount = freeAppraisals + 1;
+    if (!user && newCount > 3) { setShowAuthModal(true); return; }
+    setFreeAppraisals(newCount);
+    localStorage.setItem("freeAppraisals", newCount.toString());
+    setTextChatMessages([{ role: "user", content: text }]);
+    setDraftText("");
+    setShowTextChat(true);
+    runTextAppraisal([{ role: "user", content: text }]);
+  };
+
+  const runTextAppraisal = async (messages) => {
+    setTextChatLoading(true);
+    const systemPrompt = `You are SellYourStuff.ai, an expert resale appraiser. The user is describing an item they want to sell using text only.
+
+Your job:
+1. Ask ONE targeted follow-up question at a time to improve the valuation
+2. Always give a rough value range — never refuse to estimate
+3. Keep responses short and conversational
+4. After 2-3 exchanges, if you have enough info say: "Want me to save this as a draft listing? Upload a photo later to get the full ready-to-post listing."
+
+Format every response with:
+- A value range (even if wide: "$20-$400 depending on condition")
+- One key factor that affects the value most
+- One follow-up question OR the offer to save as draft`;
+
+    try {
+      const response = await fetch("/api/claude", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "claude-opus-4-5", max_tokens: 300, system: systemPrompt, messages }),
+      });
+      const data = await response.json();
+      const text = data.content.filter(b => b.type === "text").map(b => b.text).join("");
+      setTextChatMessages(prev => [...prev, { role: "assistant", content: text }]);
+    } catch { setTextChatMessages(prev => [...prev, { role: "assistant", content: "Something went wrong. Try again." }]); }
+    finally { setTextChatLoading(false); }
+  };
+
+  const sendTextChat = () => {
+    if (!textChatInput.trim() || textChatLoading) return;
+    const msg = textChatInput.trim();
+    setTextChatInput("");
+    const newMessages = [...textChatMessages, { role: "user", content: msg }];
+    setTextChatMessages(newMessages);
+    runTextAppraisal(newMessages);
+  };
+
+  const saveTextDraft = async () => {
+    if (!user) { setShowAuthModal(true); return; }
+    const firstUserMsg = textChatMessages.find(m => m.role === "user")?.content || "Unknown item";
+    await saveDraft(firstUserMsg);
+    setShowTextChat(false);
+    setTextChatMessages([]);
   };
 
   const getThumbDataUrl = (file) => new Promise((res) => {
@@ -780,21 +844,48 @@ function MainApp() {
               {error && <div className="err">{error}</div>}
               <button className="btn-primary" disabled={!photos.length || loading} onClick={analyze}>Analyze &amp; Price It →</button>
 
-              <div className="draft-divider"><span>or save for later</span></div>
-              <div className="draft-row">
-                <input
-                  className="draft-input"
-                  value={draftText}
-                  onChange={e => setDraftText(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && saveDraft(draftText)}
-                  placeholder="Describe what you have, e.g. old guitar, vintage lamp..."
-                />
-                <button className="draft-save-btn" onClick={() => saveDraft(draftText)} disabled={!draftText.trim()}>
-                  Save Draft
-                </button>
-              </div>
-              {!user && draftText && (
-                <div className="draft-login-hint">Sign in to save drafts across devices</div>
+              <div className="draft-divider"><span>or describe what you have</span></div>
+
+              {!showTextChat ? (
+                <>
+                  <div className="draft-row">
+                    <input
+                      className="draft-input"
+                      value={draftText}
+                      onChange={e => setDraftText(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && startTextAppraisal(draftText)}
+                      placeholder="e.g. old guitar, vintage lamp, pewter figurine..."
+                    />
+                    <button className="draft-save-btn" onClick={() => startTextAppraisal(draftText)} disabled={!draftText.trim()}>
+                      Get Estimate →
+                    </button>
+                  </div>
+                  {!user && (
+                    <div className="draft-login-hint">
+                      {freeAppraisals >= 3 ? "Sign in for more free appraisals" : `${3 - freeAppraisals} free text appraisal${3 - freeAppraisals !== 1 ? "s" : ""} remaining`}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-chat-box">
+                  <div className="text-chat-messages">
+                    {textChatMessages.map((m, i) => (
+                      <div key={i} className={`coach-bubble ${m.role === "user" ? "me" : "ai"}`}>{m.content}</div>
+                    ))}
+                    {textChatLoading && <div className="coach-bubble ai"><div className="spin" style={{ width: 18, height: 18, borderWidth: 2, margin: "0 auto" }} /></div>}
+                  </div>
+                  <div className="text-chat-actions">
+                    <div className="coach-input-row">
+                      <input className="coach-input" value={textChatInput} onChange={e => setTextChatInput(e.target.value)} onKeyDown={e => e.key === "Enter" && sendTextChat()} placeholder="Answer or ask a follow-up..." disabled={textChatLoading} />
+                      <button className="coach-send" onClick={sendTextChat} disabled={!textChatInput.trim() || textChatLoading}>→</button>
+                    </div>
+                    <div className="text-chat-footer">
+                      <button className="text-chat-save-btn" onClick={saveTextDraft}>💾 Save as Draft</button>
+                      <button className="text-chat-close-btn" onClick={() => { setShowTextChat(false); setTextChatMessages([]); setDraftText(""); }}>Start over</button>
+                    </div>
+                  </div>
+                  {!user && <div className="draft-login-hint">Sign in to save this draft and come back to it later</div>}
+                </div>
               )}
             </div>
           )}
@@ -935,8 +1026,20 @@ function MainApp() {
               ) : (
                 <>
                   {savedListings.map((item, i) => <SavedCard key={item.id} item={item} index={i} user={user} onLoginRequired={() => setShowAuthModal(true)} />)}
-                  {user && savedListings.length >= 1 && (
-                    <SellingCoach listings={savedListings} sellerContext={sellerContext} />
+                  {savedListings.length >= 1 && (
+                    user && (credits === 9999 || credits <= 0) ? (
+                      <SellingCoach listings={savedListings} sellerContext={sellerContext} />
+                    ) : (
+                      <div className="coach-locked">
+                        <div className="coach-locked-icon">🎯</div>
+                        <div className="coach-locked-title">Selling Coach</div>
+                        <div className="coach-locked-pitch">Tell us what you have. We'll tell you what's actually worth selling — and what to do first.</div>
+                        <div className="coach-locked-desc">Analyzes your full inventory, spots the high-value items, and gives you a prioritized action plan so you don't waste time on stuff that won't sell.</div>
+                        <button className="coach-locked-btn" onClick={() => setShowAuthModal(true)}>
+                          {user ? "Unlock with any paid plan →" : "Sign in to unlock →"}
+                        </button>
+                      </div>
+                    )
                   )}
                 </>
               )}
