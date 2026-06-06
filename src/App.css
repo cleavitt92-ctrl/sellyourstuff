@@ -357,3 +357,65 @@ body { background: #f4f7f5; font-family: 'Inter', system-ui, sans-serif; color: 
 /* ── NAV UPGRADE BUTTON ── */
 .nav-upgrade { background: #f59e0b; color: #fff; border: none; border-radius: 8px; padding: .4rem .9rem; font-size: .85rem; font-weight: 600; cursor: pointer; transition: background .2s; font-family: 'Inter',sans-serif; }
 .nav-upgrade:hover { background: #d97706; }
+
+/* ── MOBILE TABS ── */
+.mobile-tabs { display: none; }
+
+@media (max-width: 768px) {
+  .mobile-tabs {
+    display: flex;
+    background: #fff;
+    border-bottom: 1px solid #e0ebe4;
+    position: sticky;
+    top: 60px;
+    z-index: 90;
+  }
+  .mobile-tab {
+    flex: 1;
+    padding: .85rem 1rem;
+    background: none;
+    border: none;
+    border-bottom: 2.5px solid transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: .95rem;
+    font-weight: 500;
+    color: #5a7a66;
+    cursor: pointer;
+    transition: all .2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+  }
+  .mobile-tab.active {
+    color: #1a7a4a;
+    border-bottom-color: #1a7a4a;
+    font-weight: 700;
+  }
+  .mobile-tab-count {
+    background: #1a7a4a;
+    color: #fff;
+    border-radius: 20px;
+    padding: .1rem .5rem;
+    font-size: .75rem;
+    font-weight: 700;
+  }
+  .mobile-hidden { display: none !important; }
+  .main-layout { grid-template-columns: 1fr; gap: 0; padding: 1rem; }
+  .left-panel, .right-panel { width: 100%; }
+  .hero { padding: 1.5rem 1.25rem; }
+  .hero-title { font-size: 1.3rem; }
+  .hero-subhead { font-size: .95rem; }
+  .hero-desc { font-size: .88rem; }
+  .hero-badges { gap: .4rem; }
+  .hero-badge { font-size: .75rem; padding: .3rem .7rem; }
+  .navbar { padding: 0 1rem; }
+  .nav-logo { font-size: 1rem; }
+  .nav-email { display: none; }
+  .panel-title { font-size: 1.2rem; }
+  .val-big { font-size: 1.8rem; }
+  .btn-post { font-size: .9rem; padding: .9rem; }
+  .paywall-options { gap: .65rem; }
+  .paywall-option { padding: 1rem; }
+  .coach-inline-messages { max-height: 160px; }
+}

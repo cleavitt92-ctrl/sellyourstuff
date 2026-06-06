@@ -449,6 +449,7 @@ function MainApp() {
   const [textChatInput, setTextChatInput] = useState("");
   const [textChatLoading, setTextChatLoading] = useState(false);
   const [showTextChat, setShowTextChat] = useState(false);
+  const [mobileTab, setMobileTab] = useState("new"); // "new" | "listings"
   const fileInputRef = useRef(null);
   const textChatPhotoRef = useRef(null);
   const historyRef = useRef([]);
@@ -729,6 +730,7 @@ Format every response with:
       setHeroVisible(false);
       const newCredits = credits - 1;
       setCredits(newCredits);
+      if (window.innerWidth < 768) setMobileTab("listings");
       if (newCredits <= 0) { setPhase("paywall"); resetUpload(); return; }
     }
     resetUpload(); setPhase("upload");
@@ -876,8 +878,17 @@ Format every response with:
         </div>
       )}
 
+      <div className="mobile-tabs">
+        <button className={`mobile-tab ${mobileTab === "new" ? "active" : ""}`} onClick={() => setMobileTab("new")}>
+          New Listing
+        </button>
+        <button className={`mobile-tab ${mobileTab === "listings" ? "active" : ""}`} onClick={() => setMobileTab("listings")}>
+          My Listings {savedListings.length > 0 && <span className="mobile-tab-count">{savedListings.length}</span>}
+        </button>
+      </div>
+
       <div className="main-layout">
-        <div className="left-panel">
+        <div className={`left-panel ${mobileTab === "listings" ? "mobile-hidden" : ""}`}>
           <div className="panel-header">
             <h1 className="panel-title">New Listing</h1>
             <p className="panel-sub">Upload up to 6 photos — we'll price it, write the listing, and tell you where to post it.</p>
@@ -1052,7 +1063,7 @@ Format every response with:
           )}
         </div>
 
-        <div className="right-panel">
+        <div className={`right-panel ${mobileTab === "new" ? "mobile-hidden" : ""}`}>
           {showSummary && savedListings.length > 0 ? (
             <SessionSummary listings={savedListings} onAddMore={() => { setShowSummary(false); setPhase("upload"); }} />
           ) : (
