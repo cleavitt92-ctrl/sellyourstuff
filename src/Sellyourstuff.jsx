@@ -544,9 +544,13 @@ function MainApp() {
   };
 
   const callClaude = async (messages) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const headers = { "Content-Type": "application/json" };
+    if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
+    
     const response = await fetch("/api/claude", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ model: "claude-opus-4-5", max_tokens: 1024, system: buildSystemPrompt(sellerContext), messages }),
     });
     if (!response.ok) throw new Error("API error");
