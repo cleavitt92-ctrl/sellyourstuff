@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import { supabase } from "./supabase";
 import Blog from "./Blog";
+import Support from "./Support";
 
 const buildSystemPrompt = (sellerContext) => `You are SellYourStuff.ai, an expert resale AI that helps people sell household items.
 
@@ -586,7 +587,12 @@ function MainApp() {
       const parsed = await callClaude(historyRef.current);
       historyRef.current.push({ role: "assistant", content: JSON.stringify(parsed) });
       if (parsed.type === "question") { setChatMessages([{ role: "assistant", data: parsed }]); setPhase("chat"); }
-      else { setResult(parsed); setPhase("result"); }
+      else {
+        setResult(parsed);
+        setPhase("result");
+        // Auto-save to inventory immediately
+        await autoSaveListing(parsed, currentThumbRef.current);
+      }
     } catch (e) {
       console.error("Analysis error:", e.message);
       setError(`Couldn't analyze the photos: ${e.message}. Please try again.`);
@@ -604,7 +610,11 @@ function MainApp() {
     try {
       const parsed = await callClaude(historyRef.current);
       historyRef.current.push({ role: "assistant", content: JSON.stringify(parsed) });
-      if (parsed.type === "listing") { setResult(parsed); setPhase("result"); }
+      if (parsed.type === "listing") {
+        setResult(parsed);
+        setPhase("result");
+        await autoSaveListing(parsed, currentThumbRef.current);
+      }
       else { setChatMessages(prev => [...prev, { role: "assistant", data: parsed }]); }
     } catch { setError("Something went wrong. Try again."); }
     finally { setLoading(false); }
@@ -722,27 +732,28 @@ Format every response with:
     return thumbDataUrl;
   };
 
-  const saveAndAddAnother = async () => {
-    if (result) {
-      // If not logged in, save to localStorage and prompt login
-      if (!user) {
-        localStorage.setItem("pendingResult", JSON.stringify({ result, thumbUrl: currentThumbRef.current }));
-        setShowAuthModal(true);
-        return;
-      }
-      let thumbUrl = currentThumbRef.current;
-      if (thumbUrl) thumbUrl = await uploadThumb(user.id, thumbUrl) || thumbUrl;
-      const newListing = { id: Math.random(), result, thumbUrl };
-      setSavedListings(prev => [newListing, ...prev]);
-      await saveListing(user.id, result, thumbUrl);
-      localStorage.setItem("sysHeroSeen", "true");
-      setHeroVisible(false);
-      const newCredits = credits - 1;
-      setCredits(newCredits);
-      if (window.innerWidth < 768) setMobileTab("listings");
-      if (newCredits <= 0) { setPhase("paywall"); resetUpload(); return; }
+  const autoSaveListing = async (listingResult, thumbUrl) => {
+    const newListing = { id: Date.now(), result: listingResult, thumbUrl };
+    setSavedListings(prev => {
+      // Avoid duplicates if called twice
+      if (prev.some(l => l.result?.title === listingResult.title && l.result?.itemName === listingResult.itemName)) return prev;
+      return [newListing, ...prev];
+    });
+    localStorage.setItem("sysHeroSeen", "true");
+    setHeroVisible(false);
+    setCredits(c => Math.max(0, c - 1));
+    if (user) {
+      let savedThumb = thumbUrl;
+      if (thumbUrl) savedThumb = await uploadThumb(user.id, thumbUrl) || thumbUrl;
+      await saveListing(user.id, listingResult, savedThumb);
     }
-    resetUpload(); setPhase("upload");
+  };
+
+  const saveAndAddAnother = async () => {
+    // Listing already saved by autoSaveListing — just reset the form
+    resetUpload();
+    setPhase("upload");
+    if (window.innerWidth < 768) setMobileTab("new");
   };
 
   // Restore pending result after login
@@ -902,6 +913,7 @@ Format every response with:
         </div>
         <div className="nav-links">
           <Link to="/blog" className="nav-link">Tips &amp; Guides</Link>
+          <Link to="/support" className="nav-link">Support</Link>
           {user ? (
             <div className="nav-user">
               {credits !== 9999 && <button className="nav-upgrade" onClick={() => setPhase("paywall")}>Upgrade</button>}
@@ -1108,7 +1120,7 @@ Format every response with:
               )}
               <div className="actions-row">
                 {result.bucket !== "donate" && result.bucket !== "appraise" && (<button className="btn-ghost" onClick={copyListing} style={copied ? { borderColor: "#2d7a4f", color: "#2d7a4f" } : {}}>{copied ? "✓ Copied!" : "Copy Listing"}</button>)}
-                <button className="btn-ghost" onClick={saveAndAddAnother}>+ Add Another Item</button>
+                <button className="btn-ghost" onClick={saveAndAddAnother}>+ List Another Item</button>
                 {savedListings.length > 0 && <button className="btn-ghost btn-summary" onClick={saveAndShowSummary}>View My Plan</button>}
               </div>
             </div>
@@ -1195,7 +1207,10 @@ Format every response with:
       <footer className="footer">
         <div className="footer-inner">
           <span>© 2026 SellYourStuff.ai</span>
-          <Link to="/blog" className="footer-link">Tips &amp; Guides</Link>
+          <div style={{ display: "flex", gap: "1.25rem" }}>
+            <Link to="/blog" className="footer-link">Tips &amp; Guides</Link>
+            <Link to="/support" className="footer-link">Support</Link>
+          </div>
         </div>
       </footer>
     </div>
@@ -1300,6 +1315,7 @@ export default function SellYourStuff() {
       <Routes>
         <Route path="/" element={<MainApp />} />
         <Route path="/blog/*" element={<Blog />} />
+        <Route path="/support" element={<Support />} />
       </Routes>
     </BrowserRouter>
   );
