@@ -282,7 +282,7 @@ function AuthModal({ onClose }) {
 }
 
 // ── Saved listing card ─────────────────────────────────────────────────────
-function SavedCard({ item, index, user, onLoginRequired }) {
+function SavedCard({ item, index, user, onLoginRequired, onDelete, onMarkSold }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [postInstructions, setPostInstructions] = useState(null);
@@ -313,18 +313,23 @@ function SavedCard({ item, index, user, onLoginRequired }) {
 
   return (
     <div className="saved-card" style={{ animationDelay: `${index * 0.05}s` }}>
-      <div className="saved-header" onClick={() => setOpen(o => !o)}>
+      <div className="saved-header" onClick={() => !item.sold && setOpen(o => !o)} style={{ opacity: item.sold ? 0.5 : 1 }}>
         <div className="saved-thumb-wrap">
           {item.thumbUrl ? <img className="saved-thumb" src={item.thumbUrl} alt="" /> : <div className="saved-thumb saved-thumb-empty">{bucket.icon}</div>}
         </div>
         <div className="saved-meta">
-          <div className="saved-name">{item.result.itemName}</div>
+          <div className="saved-name" style={{ textDecoration: item.sold ? "line-through" : "none" }}>{item.result.itemName}</div>
           <div className="saved-sub">
-            {item.result.askingPrice > 0 && <span className="saved-price">${item.result.askingPrice}</span>}
-            <span className="saved-badge" style={{ background: bucket.color }}>{bucket.label}</span>
+            {item.sold && <span className="sold-badge">✓ Sold</span>}
+            {!item.sold && item.result.askingPrice > 0 && <span className="saved-price">${item.result.askingPrice}</span>}
+            {!item.sold && <span className="saved-badge" style={{ background: bucket.color }}>{bucket.label}</span>}
           </div>
         </div>
-        <div className="saved-chevron">{open ? "▲" : "▼"}</div>
+        <div className="saved-actions" onClick={e => e.stopPropagation()}>
+          {!item.sold && <button className="card-action-btn sold-btn" onClick={onMarkSold} title="Mark as sold">✓</button>}
+          <button className="card-action-btn delete-btn" onClick={onDelete} title="Delete listing">🗑</button>
+          {!item.sold && <div className="saved-chevron">{open ? "▲" : "▼"}</div>}
+        </div>
       </div>
       {open && (
         <div className="saved-body">
@@ -819,6 +824,39 @@ Format every response with:
     finally { setStripeLoading(false); }
   };
 
+  const exportCSV = (listings) => {
+    const headers = ["Item Name", "Status", "Asking Price", "Market Low", "Market High", "Platform", "Bucket", "Listing Title"];
+    const rows = listings.map(l => [
+      `"${(l.result.itemName || "").replace(/"/g, '""')}"`,
+      l.sold ? "Sold" : l.isDraft ? "Draft" : "Active",
+      l.result.askingPrice || 0,
+      l.result.estimatedValue?.low || 0,
+      l.result.estimatedValue?.high || 0,
+      `"${(l.result.platformName || l.result.platform || "").replace(/"/g, '""')}"`,
+      `"${(l.result.bucket || "").replace(/"/g, '""')}"`,
+      `"${(l.result.title || "").replace(/"/g, '""')}"`,
+    ]);
+    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `sellyourstuff-inventory-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const deleteListing = async (id) => {
+    if (!window.confirm("Delete this listing?")) return;
+    setSavedListings(prev => prev.filter(l => l.id !== id));
+    if (user) await supabase.from("listings").delete().eq("id", id).eq("user_id", user.id);
+  };
+
+  const markSold = async (id) => {
+    setSavedListings(prev => prev.map(l => l.id === id ? { ...l, sold: true } : l));
+    if (user) await supabase.from("listings").update({ bucket: "sold" }).eq("id", id).eq("user_id", user.id);
+  };
+
   const signOut = async () => { await supabase.auth.signOut(); setUser(null); setCredits(3); setSavedListings([]); };
 
   const getListingText = () => result ? `${result.title}\n\n${result.description}\n\nAsking price: $${result.askingPrice}` : "";
@@ -1082,9 +1120,16 @@ Format every response with:
             <SessionSummary listings={savedListings} onAddMore={() => { setShowSummary(false); setPhase("upload"); }} />
           ) : (
             <>
-              <div className="panel-header">
-                <h2 className="panel-title">My Listings</h2>
-                {savedListings.length > 0 && <span className="listings-count">{savedListings.length} item{savedListings.length !== 1 ? "s" : ""}</span>}
+              <div className="panel-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: ".5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
+                  <h2 className="panel-title" style={{ margin: 0 }}>My Listings</h2>
+                  {savedListings.length > 0 && <span className="listings-count">{savedListings.filter(l => !l.sold).length} active</span>}
+                </div>
+                {savedListings.length > 0 && (
+                  <button className="export-btn" onClick={() => exportCSV(savedListings)}>
+                    ↓ Export CSV
+                  </button>
+                )}
               </div>
               {savedListings.length === 0 ? (
                 <div className="sample-listings-wrap">
@@ -1121,7 +1166,7 @@ Format every response with:
                 </div>
               ) : (
                 <>
-                  {savedListings.map((item, i) => <SavedCard key={item.id} item={item} index={i} user={user} onLoginRequired={() => setShowAuthModal(true)} />)}
+                  {savedListings.map((item, i) => <SavedCard key={item.id} item={item} index={i} user={user} onLoginRequired={() => setShowAuthModal(true)} onDelete={() => deleteListing(item.id)} onMarkSold={() => markSold(item.id)} />)}
                   {savedListings.length >= 1 && (
                     user && (credits === 9999 || credits <= 0) ? (
                       <SellingCoach listings={savedListings} sellerContext={sellerContext} />
@@ -1167,10 +1212,11 @@ function SellingCoach({ listings, sellerContext }) {
 
   const getCoachAdvice = async (userMessage) => {
     setLoading(true);
-    const listingSummary = listings.map(l =>
+    const activeListings = listings.filter(l => !l.sold && l.result.bucket !== "sold");
+    const listingSummary = activeListings.map(l =>
       `${l.result.itemName}: $${l.result.askingPrice}, ${l.result.bucket}, ${l.result.platform}`
     ).join("\n");
-    const systemPrompt = `You are a friendly selling coach. Seller: urgency=${sellerContext.urgency}, logistics=${sellerContext.logistics}, effort=${sellerContext.effort}. Listings:\n${listingSummary}\nBe concise, warm, practical. Under 120 words.`;
+    const systemPrompt = `You are a friendly selling coach. Seller: urgency=${sellerContext.urgency}, logistics=${sellerContext.logistics}, effort=${sellerContext.effort}. Active listings:\n${listingSummary}\nBe concise, warm, practical. Under 120 words.`;
     try {
       const response = await fetch("/api/claude", {
         method: "POST", headers: { "Content-Type": "application/json" },
