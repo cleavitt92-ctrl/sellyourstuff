@@ -287,6 +287,7 @@ function SavedCard({ item, index, user, onLoginRequired, onDelete, onMarkSold })
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [postInstructions, setPostInstructions] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const pColor = platformColors[item.result.platform] || "#888";
   const bucket = bucketLabels[item.result.bucket] || bucketLabels.local;
 
@@ -328,8 +329,15 @@ function SavedCard({ item, index, user, onLoginRequired, onDelete, onMarkSold })
         </div>
         <div className="saved-actions" onClick={e => e.stopPropagation()}>
           {!item.sold && <button className="card-action-btn sold-btn" onClick={onMarkSold} title="Mark as sold">✓</button>}
-          <button className="card-action-btn delete-btn" onClick={onDelete} title="Delete listing">🗑</button>
-          {!item.sold && <div className="saved-chevron">{open ? "▲" : "▼"}</div>}
+          {confirmDelete ? (
+            <>
+              <button className="card-action-btn delete-btn" onClick={onDelete} title="Confirm delete" style={{ fontWeight: 700, fontSize: ".75rem", padding: ".25rem .5rem" }}>Yes, delete</button>
+              <button className="card-action-btn" onClick={() => setConfirmDelete(false)} style={{ fontSize: ".75rem", padding: ".25rem .5rem", color: "#5a7a66" }}>Cancel</button>
+            </>
+          ) : (
+            <button className="card-action-btn delete-btn" onClick={() => setConfirmDelete(true)} title="Delete listing">🗑</button>
+          )}
+          {!item.sold && !confirmDelete && <div className="saved-chevron">{open ? "▲" : "▼"}</div>}
         </div>
       </div>
       {open && (
@@ -858,7 +866,6 @@ Format every response with:
   };
 
   const deleteListing = async (id) => {
-    if (!window.confirm("Delete this listing?")) return;
     setSavedListings(prev => prev.filter(l => l.id !== id));
     if (user) await supabase.from("listings").delete().eq("id", id).eq("user_id", user.id);
   };
