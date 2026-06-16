@@ -889,16 +889,29 @@ Format every response with:
 
   const deleteListing = async (id) => {
     console.log("Deleting listing with id:", id);
-    console.log("Current listings:", savedListings.map(l => ({ id: l.id, name: l.result.itemName })));
-    setSavedListings(prev => {
-      const filtered = prev.filter(l => String(l.id) !== String(id));
-      console.log("After filter:", filtered.length, "listings remaining");
-      return filtered;
-    });
+    // Optimistically remove from UI
+    setSavedListings(prev => prev.filter(l => String(l.id) !== String(id)));
     if (user) {
       const { error } = await supabase.from("listings").delete().eq("id", id).eq("user_id", user.id);
-      if (error) console.error("Supabase delete error:", error);
-      else console.log("Supabase delete successful");
+      if (error) {
+        console.error("Supabase delete error:", error);
+      } else {
+        console.log("Supabase delete successful");
+        // Re-fetch to ensure UI matches database
+        const { data: listings } = await supabase.from("listings").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+        if (listings) {
+          setSavedListings(listings.map(l => ({
+            id: l.id, thumbUrl: l.thumb_url,
+            result: {
+              itemName: l.item_name, askingPrice: l.asking_price, platform: l.platform,
+              bucket: l.bucket, title: l.title, description: l.description,
+              platformReason: l.platform_reason, confidence: l.confidence,
+              estimatedValue: { low: l.estimated_value_low, high: l.estimated_value_high },
+              tips: l.tips, diamondAlert: l.diamond_alert,
+            }
+          })));
+        }
+      }
     }
   };
 
