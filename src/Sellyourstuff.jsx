@@ -741,20 +741,38 @@ Format every response with:
   };
 
   const autoSaveListing = async (listingResult, thumbUrl) => {
-    const newListing = { id: Date.now(), result: listingResult, thumbUrl };
+    // Avoid duplicates
     setSavedListings(prev => {
-      // Avoid duplicates if called twice
       if (prev.some(l => l.result?.title === listingResult.title && l.result?.itemName === listingResult.itemName)) return prev;
-      return [newListing, ...prev];
+      return prev;
     });
+
     localStorage.setItem("sysHeroSeen", "true");
     setHeroVisible(false);
     setCredits(c => Math.max(0, c - 1));
+
+    let savedThumb = thumbUrl;
+    let listingId = `local-${Date.now()}`;
+
     if (user) {
-      let savedThumb = thumbUrl;
       if (thumbUrl) savedThumb = await uploadThumb(user.id, thumbUrl) || thumbUrl;
-      await saveListing(user.id, listingResult, savedThumb);
+      // Insert and get back the Supabase UUID
+      const { data } = await supabase.from("listings").insert({
+        user_id: user.id, item_name: listingResult.itemName, asking_price: listingResult.askingPrice,
+        platform: listingResult.platform, bucket: listingResult.bucket, title: listingResult.title,
+        description: listingResult.description, platform_reason: listingResult.platformReason,
+        confidence: listingResult.confidence, estimated_value_low: listingResult.estimatedValue?.low,
+        estimated_value_high: listingResult.estimatedValue?.high, tips: listingResult.tips,
+        diamond_alert: listingResult.diamondAlert, thumb_url: savedThumb,
+      }).select().single();
+      if (data?.id) listingId = data.id;
+      await supabase.from("profiles").update({ credits: credits - 1 }).eq("id", user.id);
     }
+
+    setSavedListings(prev => {
+      if (prev.some(l => l.id === listingId)) return prev;
+      return [{ id: listingId, result: listingResult, thumbUrl: savedThumb }, ...prev];
+    });
   };
 
   const saveAndAddAnother = async () => {
