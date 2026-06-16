@@ -315,7 +315,7 @@ function SavedCard({ item, index, user, onLoginRequired, onDelete, onMarkSold })
 
   return (
     <div className="saved-card" style={{ animationDelay: `${index * 0.05}s` }}>
-      <div className="saved-header" onClick={() => !item.sold && setOpen(o => !o)} style={{ opacity: item.sold ? 0.5 : 1 }}>
+      <div className="saved-header" style={{ opacity: item.sold ? 0.5 : 1 }} onClick={() => !item.sold && !confirmDelete && setOpen(o => !o)}>
         <div className="saved-thumb-wrap">
           {item.thumbUrl ? <img className="saved-thumb" src={item.thumbUrl} alt="" /> : <div className="saved-thumb saved-thumb-empty">{bucket.icon}</div>}
         </div>
@@ -327,17 +327,21 @@ function SavedCard({ item, index, user, onLoginRequired, onDelete, onMarkSold })
             {!item.sold && <span className="saved-badge" style={{ background: bucket.color }}>{bucket.label}</span>}
           </div>
         </div>
-        <div className="saved-actions" onClick={e => e.stopPropagation()}>
-          {!item.sold && <button className="card-action-btn sold-btn" onClick={onMarkSold} title="Mark as sold">✓</button>}
+        <div className="saved-actions">
+          {!item.sold && (
+            <button className="card-action-btn sold-btn" onClick={e => { e.stopPropagation(); onMarkSold(); }} title="Mark as sold">✓</button>
+          )}
           {confirmDelete ? (
             <>
-              <button className="card-action-btn delete-btn" onClick={onDelete} title="Confirm delete" style={{ fontWeight: 700, fontSize: ".75rem", padding: ".25rem .5rem" }}>Yes, delete</button>
-              <button className="card-action-btn" onClick={() => setConfirmDelete(false)} style={{ fontSize: ".75rem", padding: ".25rem .5rem", color: "#5a7a66" }}>Cancel</button>
+              <button className="card-action-btn delete-btn" onClick={e => { e.stopPropagation(); onDelete(); }} style={{ fontWeight: 700, fontSize: ".75rem", padding: ".25rem .5rem" }}>Yes</button>
+              <button className="card-action-btn" onClick={e => { e.stopPropagation(); setConfirmDelete(false); }} style={{ fontSize: ".75rem", padding: ".25rem .5rem", color: "#5a7a66" }}>No</button>
             </>
           ) : (
-            <button className="card-action-btn delete-btn" onClick={() => setConfirmDelete(true)} title="Delete listing">🗑</button>
+            <button className="card-action-btn delete-btn" onClick={e => { e.stopPropagation(); setConfirmDelete(true); }} title="Delete">🗑</button>
           )}
-          {!item.sold && !confirmDelete && <div className="saved-chevron">{open ? "▲" : "▼"}</div>}
+          {!item.sold && !confirmDelete && (
+            <div className="saved-chevron" onClick={e => { e.stopPropagation(); setOpen(o => !o); }}>{open ? "▲" : "▼"}</div>
+          )}
         </div>
       </div>
       {open && (
