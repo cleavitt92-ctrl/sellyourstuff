@@ -884,8 +884,18 @@ Format every response with:
   };
 
   const deleteListing = async (id) => {
-    setSavedListings(prev => prev.filter(l => l.id !== id));
-    if (user) await supabase.from("listings").delete().eq("id", id).eq("user_id", user.id);
+    console.log("Deleting listing with id:", id);
+    console.log("Current listings:", savedListings.map(l => ({ id: l.id, name: l.result.itemName })));
+    setSavedListings(prev => {
+      const filtered = prev.filter(l => String(l.id) !== String(id));
+      console.log("After filter:", filtered.length, "listings remaining");
+      return filtered;
+    });
+    if (user) {
+      const { error } = await supabase.from("listings").delete().eq("id", id).eq("user_id", user.id);
+      if (error) console.error("Supabase delete error:", error);
+      else console.log("Supabase delete successful");
+    }
   };
 
   const markSold = async (id) => {
