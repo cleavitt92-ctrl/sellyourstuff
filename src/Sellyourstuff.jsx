@@ -851,7 +851,17 @@ Format every response with:
       )}
 
       <nav className="navbar">
-        <div className="nav-logo">SellYourStuff<span>.ai</span></div>
+        <div className="nav-logo">
+          <svg width="28" height="28" viewBox="0 0 100 100" style={{ marginRight: "8px", flexShrink: 0 }}>
+            <polygon points="50,8 92,50 50,92 8,50" fill="#a7d3bc"/>
+            <polygon points="50,8 92,50 50,50 8,50" fill="#137a4a"/>
+            <polygon points="50,8 50,50 8,50" fill="#a7d3bc"/>
+            <polygon points="50,8 92,50 50,50" fill="#137a4a"/>
+            <polygon points="8,50 50,92 50,50" fill="#0d5c35"/>
+            <polygon points="92,50 50,92 50,50" fill="#137a4a"/>
+          </svg>
+          <span>SellYourStuff<span style={{ color: "#a7d3bc", fontWeight: 400 }}>.ai</span></span>
+        </div>
         <div className="nav-links">
           <Link to="/blog" className="nav-link">Tips &amp; Guides</Link>
           {user ? (

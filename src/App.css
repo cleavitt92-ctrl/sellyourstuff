@@ -14,7 +14,7 @@ body { background: #f4f7f5; font-family: 'Inter', system-ui, sans-serif; color: 
 
 /* ── NAV ── */
 .navbar { display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; height: 60px; background: #fff; border-bottom: 1px solid #e0ebe4; position: sticky; top: 0; z-index: 100; }
-.nav-logo { font-size: 1.2rem; font-weight: 800; color: #1a7a4a; letter-spacing: -.5px; }
+.nav-logo { font-size: 1.2rem; font-weight: 800; color: #1a7a4a; letter-spacing: -.5px; display: flex; align-items: center; text-decoration: none; }
 .nav-logo span { color: #4caf80; font-weight: 400; }
 .nav-link { font-size: .88rem; font-weight: 500; color: #4a7a5c; text-decoration: none; transition: color .2s; }
 .nav-link:hover { color: #1a7a4a; }

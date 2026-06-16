@@ -18,7 +18,7 @@ function PostList() {
   return (
     <div className="blog-app">
       <nav className="navbar">
-        <Link to="/" className="nav-logo">SellYourStuff<span>.ai</span></Link>
+        <Link to="/" className="nav-logo" style={{display:"flex",alignItems:"center",textDecoration:"none"}}><svg width="22" height="22" viewBox="0 0 100 100" style={{marginRight:"7px"}}><polygon points="50,8 92,50 50,50 8,50" fill="#137a4a"/><polygon points="50,8 50,50 8,50" fill="#a7d3bc"/><polygon points="8,50 50,92 50,50" fill="#0d5c35"/><polygon points="92,50 50,92 50,50" fill="#137a4a"/></svg><span style={{fontWeight:800,color:"#1a7a4a"}}>SellYourStuff<span style={{color:"#a7d3bc",fontWeight:400}}>.ai</span></span></Link>
         <div className="nav-links">
           <Link to="/blog" className="nav-link" style={{ color: "#1a7a4a", fontWeight: 600 }}>Tips &amp; Guides</Link>
         </div>
@@ -60,7 +60,7 @@ function PostDetail() {
   if (!post) return (
     <div className="blog-app">
       <nav className="navbar">
-        <Link to="/" className="nav-logo">SellYourStuff<span>.ai</span></Link>
+        <Link to="/" className="nav-logo" style={{display:"flex",alignItems:"center",textDecoration:"none"}}><svg width="22" height="22" viewBox="0 0 100 100" style={{marginRight:"7px"}}><polygon points="50,8 92,50 50,50 8,50" fill="#137a4a"/><polygon points="50,8 50,50 8,50" fill="#a7d3bc"/><polygon points="8,50 50,92 50,50" fill="#0d5c35"/><polygon points="92,50 50,92 50,50" fill="#137a4a"/></svg><span style={{fontWeight:800,color:"#1a7a4a"}}>SellYourStuff<span style={{color:"#a7d3bc",fontWeight:400}}>.ai</span></span></Link>
       </nav>
       <div className="blog-container">
         <p style={{ color: "#5a7a66" }}>Post not found. <Link to="/blog" style={{ color: "#1a7a4a" }}>Back to blog</Link></p>
@@ -86,7 +86,7 @@ function PostDetail() {
   return (
     <div className="blog-app">
       <nav className="navbar">
-        <Link to="/" className="nav-logo">SellYourStuff<span>.ai</span></Link>
+        <Link to="/" className="nav-logo" style={{display:"flex",alignItems:"center",textDecoration:"none"}}><svg width="22" height="22" viewBox="0 0 100 100" style={{marginRight:"7px"}}><polygon points="50,8 92,50 50,50 8,50" fill="#137a4a"/><polygon points="50,8 50,50 8,50" fill="#a7d3bc"/><polygon points="8,50 50,92 50,50" fill="#0d5c35"/><polygon points="92,50 50,92 50,50" fill="#137a4a"/></svg><span style={{fontWeight:800,color:"#1a7a4a"}}>SellYourStuff<span style={{color:"#a7d3bc",fontWeight:400}}>.ai</span></span></Link>
         <div className="nav-links">
           <Link to="/blog" className="nav-link">Tips &amp; Guides</Link>
         </div>
