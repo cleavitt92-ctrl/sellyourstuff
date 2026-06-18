@@ -453,6 +453,7 @@ function MainApp() {
     // Logged-in users get 3 (set by loadUserData)
     return 1;
   });
+  const [userPlan, setUserPlan] = useState("free");
   const [stripeLoading, setStripeLoading] = useState(false);
   const [heroVisible, setHeroVisible] = useState(() => localStorage.getItem("sysHeroSeen") !== "true");
   const [showSummary, setShowSummary] = useState(false);
@@ -491,10 +492,14 @@ function MainApp() {
     // Admin emails get unlimited credits
     if (ADMIN_EMAILS.includes(email)) {
       setCredits(9999);
+      setUserPlan("admin");
     } else {
       const { data: profile } = await supabase.from("profiles").select("credits, plan").eq("id", userId).single();
       // New users get 3 credits (default in DB), existing users use their saved count
-      if (profile) setCredits(profile.credits ?? 3);
+      if (profile) {
+        setCredits(profile.credits ?? 3);
+        setUserPlan(profile.plan || "free");
+      }
     }
     const { data: listings } = await supabase.from("listings").select("*").eq("user_id", userId).order("created_at", { ascending: false });
     if (listings?.length) {
@@ -915,7 +920,7 @@ Format every response with:
     if (user) await supabase.from("listings").update({ bucket: "sold" }).eq("id", id).eq("user_id", user.id);
   };
 
-  const signOut = async () => { await supabase.auth.signOut(); setUser(null); setCredits(3); setSavedListings([]); };
+  const signOut = async () => { await supabase.auth.signOut(); setUser(null); setCredits(1); setUserPlan("free"); setSavedListings([]); };
 
   const getListingText = () => result ? `${result.title}\n\n${result.description}\n\nAsking price: $${result.askingPrice}` : "";
   const copyListing = () => {
@@ -963,7 +968,7 @@ Format every response with:
           <Link to="/support" className="nav-link">Support</Link>
           {user ? (
             <div className="nav-user">
-              {credits !== 9999 && <button className="nav-upgrade" onClick={() => setPhase("paywall")}>Upgrade</button>}
+              {userPlan !== "admin" && userPlan !== "monthly" && <button className="nav-upgrade" onClick={() => setPhase("paywall")}>Upgrade</button>}
               <span className="nav-email">{user.email?.split("@")[0]}</span>
               <button className="nav-signout" onClick={signOut}>Sign out</button>
             </div>
@@ -1227,7 +1232,7 @@ Format every response with:
                 <>
                   {savedListings.map((item, i) => <SavedCard key={item.id} item={item} index={i} user={user} onLoginRequired={() => setShowAuthModal(true)} onDelete={() => deleteListing(item.id)} onMarkSold={() => markSold(item.id)} />)}
                   {savedListings.length >= 1 && (
-                    user && (credits === 9999 || credits <= 0) ? (
+                    user && (userPlan === "admin" || userPlan === "monthly" || userPlan === "pack") ? (
                       <SellingCoach listings={savedListings} sellerContext={sellerContext} />
                     ) : (
                       <div className="coach-locked">
