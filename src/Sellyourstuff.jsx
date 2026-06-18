@@ -591,9 +591,8 @@ function MainApp() {
         const b64 = await toBase64(p.file);
         return { type: "image", source: { type: "base64", media_type: "image/jpeg", data: b64 } };
       }));
-      // Store first photo as compressed base64 for thumbnail
-      const firstB64 = imageBlocks[0]?.source?.data;
-      currentThumbRef.current = firstB64 ? `data:image/jpeg;base64,${firstB64.slice(0, 2000)}` : null;
+      // Generate a proper small thumbnail from the first photo file (not truncated base64)
+      currentThumbRef.current = photos[0] ? await getThumbDataUrl(photos[0].file) : null;
       const firstMsg = { role: "user", content: [...imageBlocks, { type: "text", text: "I want to sell this item. What is it worth and how should I list it?" }] };
       historyRef.current = [firstMsg];
       const parsed = await callClaude(historyRef.current);
@@ -715,33 +714,49 @@ Format every response with:
     }
   }, [user]);
 
-  const getThumbDataUrl = (file) => new Promise((res) => {
-    if (!file) return res(null);
-    // If it's already a data URL or http URL, use it directly
-    if (typeof file === "string") {
+  const getThumbDataUrl = (fileOrUrl) => new Promise((res) => {
+    if (!fileOrUrl) return res(null);
+
+    const resizeImage = (imgSrc) => {
       const img = new Image();
       img.onload = () => {
-        const SIZE = 120;
+        const SIZE = 160;
         let w = img.width, h = img.height;
         if (w > h) { h = Math.round(h * SIZE / w); w = SIZE; }
         else { w = Math.round(w * SIZE / h); h = SIZE; }
         const canvas = document.createElement("canvas");
         canvas.width = w; canvas.height = h;
-        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
         res(canvas.toDataURL("image/jpeg", 0.7));
       };
       img.onerror = () => res(null);
-      img.src = file;
+      img.src = imgSrc;
+    };
+
+    // File object — use FileReader (reliable on mobile)
+    if (fileOrUrl instanceof File || fileOrUrl instanceof Blob) {
+      const reader = new FileReader();
+      reader.onload = (e) => resizeImage(e.target.result);
+      reader.onerror = () => res(null);
+      reader.readAsDataURL(fileOrUrl);
       return;
     }
+
+    // Already a data URL or http(s) URL
+    if (typeof fileOrUrl === "string") {
+      resizeImage(fileOrUrl);
+      return;
+    }
+
     res(null);
   });
 
   const uploadThumb = async (userId, dataUrl) => {
     if (!dataUrl) return null;
-    // Convert blob URL to small base64 data URL for storage
-    const thumbDataUrl = await getThumbDataUrl(dataUrl);
-    return thumbDataUrl;
+    return await getThumbDataUrl(dataUrl);
   };
 
   const autoSaveListing = async (listingResult, thumbUrl) => {
@@ -888,30 +903,10 @@ Format every response with:
   };
 
   const deleteListing = async (id) => {
-    console.log("Deleting listing with id:", id);
-    // Optimistically remove from UI
+    // Immediately remove from UI
     setSavedListings(prev => prev.filter(l => String(l.id) !== String(id)));
     if (user) {
-      const { error } = await supabase.from("listings").delete().eq("id", id).eq("user_id", user.id);
-      if (error) {
-        console.error("Supabase delete error:", error);
-      } else {
-        console.log("Supabase delete successful");
-        // Re-fetch to ensure UI matches database
-        const { data: listings } = await supabase.from("listings").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
-        if (listings) {
-          setSavedListings(listings.map(l => ({
-            id: l.id, thumbUrl: l.thumb_url,
-            result: {
-              itemName: l.item_name, askingPrice: l.asking_price, platform: l.platform,
-              bucket: l.bucket, title: l.title, description: l.description,
-              platformReason: l.platform_reason, confidence: l.confidence,
-              estimatedValue: { low: l.estimated_value_low, high: l.estimated_value_high },
-              tips: l.tips, diamondAlert: l.diamond_alert,
-            }
-          })));
-        }
-      }
+      await supabase.from("listings").delete().eq("id", id).eq("user_id", user.id);
     }
   };
 
