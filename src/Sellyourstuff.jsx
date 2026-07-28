@@ -958,14 +958,14 @@ function MainApp() {
           <div className="how-it-works-strip">
             <div className="hiw-step"><span className="hiw-icon">📷</span><span className="hiw-label">Upload photos</span></div>
             <div className="hiw-arrow">→</div>
-            <div className="hiw-step"><span className="hiw-icon">🤖</span><span className="hiw-label">AI appraises & writes listing</span></div>
+            <div className="hiw-step"><span className="hiw-icon">🤖</span><span className="hiw-label">AI appraises &amp; writes listing</span></div>
             <div className="hiw-arrow">→</div>
             <div className="hiw-step"><span className="hiw-icon">💰</span><span className="hiw-label">Post & sell</span></div>
           </div>
-            {user && credits <= 5 && credits > 0 && (
-              <div className="credits-badge">{credits} free listing{credits !== 1 ? "s" : ""} remaining</div>
-            )}
-          </div>
+
+          {user && credits <= 5 && credits > 0 && (
+            <div className="credits-badge">{credits} free listing{credits !== 1 ? "s" : ""} remaining</div>
+          )}
 
           {phase === "upload" && (
             <div className="card">
