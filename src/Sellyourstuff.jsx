@@ -956,11 +956,32 @@ function MainApp() {
           </div>
 
           <div className="how-it-works-strip">
-            <div className="hiw-step"><span className="hiw-icon">📷</span><span className="hiw-label">Upload photos</span></div>
-            <div className="hiw-arrow">→</div>
-            <div className="hiw-step"><span className="hiw-icon">🤖</span><span className="hiw-label">AI appraises &amp; writes listing</span></div>
-            <div className="hiw-arrow">→</div>
-            <div className="hiw-step"><span className="hiw-icon">💰</span><span className="hiw-label">Post & sell</span></div>
+            <div className="hiw-step">
+              <div className="hiw-icon-wrap">
+                <span>📷</span>
+                <span className="hiw-step-num">1</span>
+              </div>
+              <div className="hiw-label">Upload Photos</div>
+              <div className="hiw-sub">Any item, any angle</div>
+            </div>
+            <div className="hiw-arrow">›</div>
+            <div className="hiw-step">
+              <div className="hiw-icon-wrap">
+                <span>✨</span>
+                <span className="hiw-step-num">2</span>
+              </div>
+              <div className="hiw-label">AI Appraises</div>
+              <div className="hiw-sub">Value, platform &amp; listing</div>
+            </div>
+            <div className="hiw-arrow">›</div>
+            <div className="hiw-step">
+              <div className="hiw-icon-wrap">
+                <span>💰</span>
+                <span className="hiw-step-num">3</span>
+              </div>
+              <div className="hiw-label">Post &amp; Sell</div>
+              <div className="hiw-sub">One click to list</div>
+            </div>
           </div>
 
           {user && credits <= 5 && credits > 0 && (
