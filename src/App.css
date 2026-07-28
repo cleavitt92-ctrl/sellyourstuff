@@ -29,6 +29,14 @@ body { background: #f4f7f5; font-family: 'Inter', system-ui, sans-serif; color: 
 .panel-header { margin-bottom: .25rem; }
 .panel-title { font-size: 1.4rem; font-weight: 700; color: #1a2e22; margin-bottom: .25rem; }
 .panel-sub { font-size: .88rem; color: #5a7a66; margin-bottom: .5rem; }
+
+/* How It Works strip */
+.how-it-works-strip { display: flex; align-items: center; gap: .4rem; background: #f0f7f3; border: 1px solid #dde8e2; border-radius: 10px; padding: .55rem .85rem; margin-bottom: .85rem; flex-wrap: wrap; }
+.hiw-step { display: flex; align-items: center; gap: .35rem; flex: 1; min-width: 0; }
+.hiw-icon { font-size: 1rem; flex-shrink: 0; }
+.hiw-label { font-size: .78rem; font-weight: 500; color: #2d6a4a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hiw-arrow { color: #a7d3bc; font-size: .85rem; font-weight: 700; flex-shrink: 0; }
+@media (max-width: 480px) { .hiw-arrow { display: none; } .hiw-step { flex: 0 0 100%; } .how-it-works-strip { gap: .3rem; } }
 .listings-count { background: #1a7a4a; color: #fff; border-radius: 20px; padding: .2rem .65rem; font-size: .78rem; font-weight: 600; display: inline-block; margin-top: .25rem; }
 
 /* ── CARD ── */

@@ -953,7 +953,15 @@ function MainApp() {
         <div className={`left-panel ${mobileTab === "listings" ? "mobile-hidden" : ""}`}>
           <div className="panel-header">
             <h1 className="panel-title">New Listing</h1>
-            <p className="panel-sub">Upload up to 6 photos — we'll price it, write the listing, and tell you where to post it.</p>
+          </div>
+
+          <div className="how-it-works-strip">
+            <div className="hiw-step"><span className="hiw-icon">📷</span><span className="hiw-label">Upload photos</span></div>
+            <div className="hiw-arrow">→</div>
+            <div className="hiw-step"><span className="hiw-icon">🤖</span><span className="hiw-label">AI appraises & writes listing</span></div>
+            <div className="hiw-arrow">→</div>
+            <div className="hiw-step"><span className="hiw-icon">💰</span><span className="hiw-label">Post & sell</span></div>
+          </div>
             {user && credits <= 5 && credits > 0 && (
               <div className="credits-badge">{credits} free listing{credits !== 1 ? "s" : ""} remaining</div>
             )}
@@ -1227,8 +1235,20 @@ function SellingCoach({ listings, sellerContext, lang }) {
 
 // ── Seller interview ───────────────────────────────────────────────────────
 function SellerInterview({ onComplete, compact }) {
-  const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState({ urgency: null, logistics: null, effort: null });
+  const STORAGE_KEY = "sysInterviewAnswers";
+  const [step, setStep] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      const keys = ["urgency", "logistics", "effort"];
+      // Resume at the first unanswered question
+      const resumeStep = keys.findIndex(k => !saved[k]);
+      return resumeStep === -1 ? 0 : resumeStep;
+    } catch { return 0; }
+  });
+  const [answers, setAnswers] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); }
+    catch { return { urgency: null, logistics: null, effort: null }; }
+  });
   const questions = [
     { key: "urgency", question: "How fast do you want to sell this?", options: [{ value: "this_week", label: "This week", sub: "Price to move fast" }, { value: "within_a_month", label: "Within a month", sub: "Balanced approach" }, { value: "no_rush", label: "No rush", sub: "Maximize what I get" }] },
     { key: "logistics", question: "Local pickup or can you ship?", options: [{ value: "local_only", label: "Local only", sub: "No shipping" }, { value: "can_ship", label: "I can ship", sub: "Open to online buyers" }, { value: "both", label: "Either works", sub: "Most flexible" }] },
@@ -1238,8 +1258,12 @@ function SellerInterview({ onComplete, compact }) {
   const pick = (value) => {
     const newAnswers = { ...answers, [current.key]: value };
     setAnswers(newAnswers);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newAnswers));
     if (step < questions.length - 1) setStep(step + 1);
-    else onComplete(newAnswers);
+    else {
+      localStorage.removeItem(STORAGE_KEY); // clear after completion
+      onComplete(newAnswers);
+    }
   };
   return (
     <div className={compact ? "interview-compact" : "card interview-card"}>
@@ -1254,7 +1278,7 @@ function SellerInterview({ onComplete, compact }) {
         ))}
       </div>
       <div className="interview-skip">
-        <button className="interview-skip-btn" onClick={() => onComplete({ urgency: "within_a_month", logistics: "both", effort: "moderate" })}>Skip</button>
+        <button className="interview-skip-btn" onClick={() => { localStorage.removeItem("sysInterviewAnswers"); onComplete({ urgency: "within_a_month", logistics: "both", effort: "moderate" }); }}>Skip</button>
       </div>
     </div>
   );
