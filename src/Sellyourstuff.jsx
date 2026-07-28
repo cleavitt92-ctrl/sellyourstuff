@@ -3,8 +3,13 @@ import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import { supabase } from "./supabase";
 import Blog from "./Blog";
 import Support from "./Support";
+import { detectLanguage, setLanguage, t } from "./i18n";
 
-const buildSystemPrompt = (sellerContext) => `You are SellYourStuff.ai, an expert resale AI that helps people sell household items.
+const langNames = { en: "English", pt: "Portuguese (Portugal)", es: "Spanish" };
+
+const buildSystemPrompt = (sellerContext, lang = "en") => `You are SellYourStuff.ai, an expert resale AI that helps people sell household items.
+
+IMPORTANT: Respond entirely in ${langNames[lang] || "English"}. All text fields (itemName, title, description, platformReason, tips, diamondAlert, question, why) must be written in ${langNames[lang] || "English"}. Keep JSON keys in English exactly as specified below — only the VALUES should be translated.
 
 ALWAYS respond in valid JSON only. No markdown fences, no text outside the JSON object.
 
@@ -433,7 +438,7 @@ function SessionSummary({ listings, onAddMore }) {
   );
 }
 
-const ADMIN_EMAILS = ["cleavitt92@gmail.com", "jleavitt@rfam.net"];
+const ADMIN_EMAILS = ["cleavitt92@gmail.com", "jleavitt@rfam.net", "laneantunes51@gmail.com"];
 
 // ── Main app ───────────────────────────────────────────────────────────────
 function MainApp() {
@@ -449,28 +454,31 @@ function MainApp() {
   const [postInstructions, setPostInstructions] = useState(null);
   const [savedListings, setSavedListings] = useState([]);
   const [credits, setCredits] = useState(() => {
-    // Non-logged-in users get 1 free full listing
-    // Logged-in users get 3 (set by loadUserData)
-    return 1;
+    // Non-logged-in users get 1 free full listing (tracked in localStorage)
+    // Logged-in users get 5 (set by loadUserData from Supabase)
+    const stored = localStorage.getItem("freeListingsUsed");
+    return stored ? Math.max(0, 1 - parseInt(stored)) : 1;
   });
   const [userPlan, setUserPlan] = useState("free");
+  const [lang, setLang] = useState("en");
+
+  // Detect language from IP on first load
+  useEffect(() => {
+    detectLanguage().then(setLang);
+  }, []);
+
+  const changeLang = (newLang) => {
+    setLang(newLang);
+    setLanguage(newLang);
+  };
   const [stripeLoading, setStripeLoading] = useState(false);
   const [heroVisible, setHeroVisible] = useState(() => localStorage.getItem("sysHeroSeen") !== "true");
   const [showSummary, setShowSummary] = useState(false);
   const [user, setUser] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showInterview, setShowInterview] = useState(false);
-  const [draftText, setDraftText] = useState("");
-  const [freeAppraisals, setFreeAppraisals] = useState(() => {
-    return parseInt(localStorage.getItem("freeAppraisals") || "0");
-  });
-  const [textChatMessages, setTextChatMessages] = useState([]);
-  const [textChatInput, setTextChatInput] = useState("");
-  const [textChatLoading, setTextChatLoading] = useState(false);
-  const [showTextChat, setShowTextChat] = useState(false);
   const [mobileTab, setMobileTab] = useState("new"); // "new" | "listings"
   const fileInputRef = useRef(null);
-  const textChatPhotoRef = useRef(null);
   const historyRef = useRef([]);
   const dragRef = useRef(null);
   const currentThumbRef = useRef(null);
@@ -495,9 +503,9 @@ function MainApp() {
       setUserPlan("admin");
     } else {
       const { data: profile } = await supabase.from("profiles").select("credits, plan").eq("id", userId).single();
-      // New users get 3 credits (default in DB), existing users use their saved count
+      // New users get 5 credits (default in DB), existing users use their saved count
       if (profile) {
-        setCredits(profile.credits ?? 3);
+        setCredits(profile.credits ?? 5);
         setUserPlan(profile.plan || "free");
       }
     }
@@ -574,7 +582,7 @@ function MainApp() {
     const response = await fetch("/api/claude", {
       method: "POST",
       headers,
-      body: JSON.stringify({ model: "claude-opus-4-5", max_tokens: 1024, system: buildSystemPrompt(sellerContext), messages }),
+      body: JSON.stringify({ model: "claude-opus-4-5", max_tokens: 1024, system: buildSystemPrompt(sellerContext, lang), messages }),
     });
     if (!response.ok) throw new Error("API error");
     const data = await response.json();
@@ -636,88 +644,7 @@ function MainApp() {
     finally { setLoading(false); }
   };
 
-  const startTextAppraisal = (text) => {
-    if (!text.trim()) return;
-    const newCount = freeAppraisals + 1;
-    if (!user && newCount > 3) { setShowAuthModal(true); return; }
-    setFreeAppraisals(newCount);
-    localStorage.setItem("freeAppraisals", newCount.toString());
-    setTextChatMessages([{ role: "user", content: text }]);
-    setDraftText("");
-    setShowTextChat(true);
-    runTextAppraisal([{ role: "user", content: text }]);
-  };
 
-  const runTextAppraisal = async (messages) => {
-    setTextChatLoading(true);
-    const systemPrompt = `You are SellYourStuff.ai, an expert resale appraiser. The user is describing an item they want to sell using text only.
-
-Your job:
-1. Ask ONE targeted follow-up question at a time to improve the valuation
-2. Always give a rough value range — never refuse to estimate
-3. Keep responses short and conversational
-4. After 2-3 exchanges, if you have enough info say: "Want me to save this as a draft listing? Upload a photo later to get the full ready-to-post listing."
-
-Format every response with:
-- A value range (even if wide: "$20-$400 depending on condition")
-- One key factor that affects the value most
-- One follow-up question OR the offer to save as draft`;
-
-    try {
-      const response = await fetch("/api/claude", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "claude-opus-4-5", max_tokens: 300, system: systemPrompt, messages }),
-      });
-      const data = await response.json();
-      const text = data.content.filter(b => b.type === "text").map(b => b.text).join("");
-      setTextChatMessages(prev => [...prev, { role: "assistant", content: text }]);
-    } catch { setTextChatMessages(prev => [...prev, { role: "assistant", content: "Something went wrong. Try again." }]); }
-    finally { setTextChatLoading(false); }
-  };
-
-  const sendTextChat = () => {
-    if (!textChatInput.trim() || textChatLoading) return;
-    const msg = textChatInput.trim();
-    setTextChatInput("");
-    const newMessages = [...textChatMessages, { role: "user", content: msg }];
-    setTextChatMessages(newMessages);
-    runTextAppraisal(newMessages);
-  };
-
-  const saveTextDraft = async () => {
-    if (!user) {
-      // Save conversation to localStorage before auth redirect
-      localStorage.setItem("pendingDraft", JSON.stringify({
-        messages: textChatMessages,
-        itemName: textChatMessages.find(m => m.role === "user")?.content || "Unknown item"
-      }));
-      setShowAuthModal(true);
-      return;
-    }
-    const firstUserMsg = textChatMessages.find(m => m.role === "user")?.content || "Unknown item";
-    await saveDraft(firstUserMsg);
-    setShowTextChat(false);
-    setTextChatMessages([]);
-  };
-
-  // Restore pending draft after login
-  useEffect(() => {
-    if (user) {
-      const pending = localStorage.getItem("pendingDraft");
-      if (pending) {
-        try {
-          const { messages, itemName } = JSON.parse(pending);
-          localStorage.removeItem("pendingDraft");
-          // Restore the conversation
-          setTextChatMessages(messages);
-          setShowTextChat(true);
-          // Auto-save the draft
-          saveDraft(itemName);
-        } catch { localStorage.removeItem("pendingDraft"); }
-      }
-    }
-  }, [user]);
 
   const getThumbDataUrl = (fileOrUrl) => new Promise((res) => {
     if (!fileOrUrl) return res(null);
@@ -774,6 +701,12 @@ Format every response with:
     localStorage.setItem("sysHeroSeen", "true");
     setHeroVisible(false);
     setCredits(c => Math.max(0, c - 1));
+
+    // Track non-logged-in free listing usage in localStorage
+    if (!user) {
+      const used = parseInt(localStorage.getItem("freeListingsUsed") || "0") + 1;
+      localStorage.setItem("freeListingsUsed", used.toString());
+    }
 
     let savedThumb = thumbUrl;
     let listingId = `local-${Date.now()}`;
@@ -920,7 +853,15 @@ Format every response with:
     if (user) await supabase.from("listings").update({ bucket: "sold" }).eq("id", id).eq("user_id", user.id);
   };
 
-  const signOut = async () => { await supabase.auth.signOut(); setUser(null); setCredits(1); setUserPlan("free"); setSavedListings([]); };
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    // After sign out, check if they've used their 1 free non-logged-in listing
+    const stored = localStorage.getItem("freeListingsUsed");
+    setCredits(stored ? Math.max(0, 1 - parseInt(stored)) : 1);
+    setUserPlan("free");
+    setSavedListings([]);
+  };
 
   const getListingText = () => result ? `${result.title}\n\n${result.description}\n\nAsking price: $${result.askingPrice}` : "";
   const copyListing = () => {
@@ -964,16 +905,21 @@ Format every response with:
           <span>SellYourStuff<span style={{ color: "#a7d3bc", fontWeight: 400 }}>.ai</span></span>
         </div>
         <div className="nav-links">
-          <Link to="/blog" className="nav-link">Tips &amp; Guides</Link>
-          <Link to="/support" className="nav-link">Support</Link>
+          <select className="lang-switcher" value={lang} onChange={e => changeLang(e.target.value)} title="Language">
+            <option value="en">🇬🇧 EN</option>
+            <option value="pt">🇵🇹 PT</option>
+            <option value="es">🇪🇸 ES</option>
+          </select>
+          <Link to="/blog" className="nav-link">{t(lang, "tipsGuides")}</Link>
+          <Link to="/support" className="nav-link">{t(lang, "support")}</Link>
           {user ? (
             <div className="nav-user">
-              {userPlan !== "admin" && userPlan !== "monthly" && <button className="nav-upgrade" onClick={() => setPhase("paywall")}>Upgrade</button>}
+              {userPlan !== "admin" && userPlan !== "monthly" && <button className="nav-upgrade" onClick={() => setPhase("paywall")}>{t(lang, "upgrade")}</button>}
               <span className="nav-email">{user.email?.split("@")[0]}</span>
-              <button className="nav-signout" onClick={signOut}>Sign out</button>
+              <button className="nav-signout" onClick={signOut}>{t(lang, "signOut")}</button>
             </div>
           ) : (
-            <button className="nav-signin" onClick={() => setShowAuthModal(true)}>Sign in</button>
+            <button className="nav-signin" onClick={() => setShowAuthModal(true)}>{t(lang, "signIn")}</button>
           )}
         </div>
       </nav>
@@ -981,14 +927,14 @@ Format every response with:
       {heroVisible && (
         <div className="hero">
           <div className="hero-inner">
-            <h1 className="hero-title">You have a basement full of stuff. We'll tell you what's actually worth selling.</h1>
-            <p className="hero-subhead">And we'll make sure you don't miss the diamond in the rough that makes it all worth it.</p>
-            <p className="hero-desc">Most people leave hundreds of dollars behind because they don't know where to start. Take photos of anything: furniture, collectibles, electronics, clothes, tools, random junk. SellYourStuff.ai figures out what each thing is worth, whether it's worth your time to sell, and the fastest way to move it. eBay, Facebook Marketplace, local listing, or just donate it and save yourself the weekend. We'll make the call for you.</p>
+            <h1 className="hero-title">{t(lang, "heroTitle")}</h1>
+            <p className="hero-subhead">{t(lang, "heroSubhead")}</p>
+            <p className="hero-desc">{t(lang, "heroDesc")}</p>
             <div className="hero-badges">
-              <span className="hero-badge">📷 Just upload photos</span>
-              <span className="hero-badge">💎 Find the hidden value</span>
-              <span className="hero-badge">🎯 We tell you what to sell first</span>
-              <span className="hero-badge">⏱️ Under 60 seconds per item</span>
+              <span className="hero-badge">{t(lang, "badge1")}</span>
+              <span className="hero-badge">{t(lang, "badge2")}</span>
+              <span className="hero-badge">{t(lang, "badge3")}</span>
+              <span className="hero-badge">{t(lang, "badge4")}</span>
             </div>
           </div>
         </div>
@@ -1008,7 +954,7 @@ Format every response with:
           <div className="panel-header">
             <h1 className="panel-title">New Listing</h1>
             <p className="panel-sub">Upload up to 6 photos — we'll price it, write the listing, and tell you where to post it.</p>
-            {credits <= 3 && credits > 0 && (
+            {user && credits <= 5 && credits > 0 && (
               <div className="credits-badge">{credits} free listing{credits !== 1 ? "s" : ""} remaining</div>
             )}
           </div>
@@ -1024,65 +970,9 @@ Format every response with:
               {photos.length > 0 && (<><div className="photo-grid">{photos.map((p, i) => (<div key={p.id} className="thumb"><img src={p.url} alt="" /><button className="thumb-x" onClick={e => { e.stopPropagation(); setPhotos(prev => prev.filter((_, j) => j !== i)); }}>×</button></div>))}</div><div className="photo-count">{photos.length} photo{photos.length !== 1 ? "s" : ""} ready</div></>)}
               {error && <div className="err">{error}</div>}
               <button className="btn-primary" disabled={!photos.length || loading} onClick={analyze}>Analyze &amp; Price It →</button>
-
-              <div className="draft-divider"><span>or describe what you have</span></div>
-
-              {!showTextChat ? (
-                <>
-                  <div className="draft-row">
-                    <input
-                      className="draft-input"
-                      value={draftText}
-                      onChange={e => setDraftText(e.target.value)}
-                      onKeyDown={e => e.key === "Enter" && startTextAppraisal(draftText)}
-                      placeholder="e.g. old guitar, vintage lamp, pewter figurine..."
-                    />
-                    <button className="draft-save-btn" onClick={() => startTextAppraisal(draftText)} disabled={!draftText.trim()}>
-                      Get Estimate →
-                    </button>
-                  </div>
-                  {!user && (
-                    <div className="draft-login-hint">
-                      {freeAppraisals >= 3 ? "Sign in for more free appraisals" : `${3 - freeAppraisals} free text appraisal${3 - freeAppraisals !== 1 ? "s" : ""} remaining`}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="text-chat-box">
-                  <div className="text-chat-messages">
-                    {textChatMessages.map((m, i) => (
-                      <div key={i} className={`coach-bubble ${m.role === "user" ? "me" : "ai"}`}>{m.content}</div>
-                    ))}
-                    {textChatLoading && <div className="coach-bubble ai"><div className="spin" style={{ width: 18, height: 18, borderWidth: 2, margin: "0 auto" }} /></div>}
-                  </div>
-                  <div className="text-chat-actions">
-                    <div className="coach-input-row">
-                      <input className="coach-input" value={textChatInput} onChange={e => setTextChatInput(e.target.value)} onKeyDown={e => e.key === "Enter" && sendTextChat()} placeholder="Answer or ask a follow-up..." disabled={textChatLoading} />
-                      <button className="coach-send" onClick={sendTextChat} disabled={!textChatInput.trim() || textChatLoading}>→</button>
-                    </div>
-                    <div className="text-chat-footer">
-                      <button className="text-chat-photo-btn" onClick={() => textChatPhotoRef.current?.click()}>
-                        📷 Add Photo for Full Listing
-                      </button>
-                      <input
-                        ref={textChatPhotoRef}
-                        type="file"
-                        accept="image/*"
-                        style={{ display: "none" }}
-                        onChange={e => {
-                          if (e.target.files[0]) {
-                            addPhotos([e.target.files[0]]);
-                            setShowTextChat(false);
-                            setTextChatMessages([]);
-                            setShowInterview(true);
-                          }
-                        }}
-                      />
-                      <button className="text-chat-save-btn" onClick={saveTextDraft}>💾 Save Draft</button>
-                      <button className="text-chat-close-btn" onClick={() => { setShowTextChat(false); setTextChatMessages([]); setDraftText(""); }}>Start over</button>
-                    </div>
-                  </div>
-                  {!user && <div className="draft-login-hint">Sign in to save this draft and come back to it later</div>}
+              {!user && credits > 0 && (
+                <div className="draft-login-hint">
+                  {credits === 1 ? "1 free appraisal — sign in to save your results and get 5 more free" : "Sign in free to save your inventory and get 5 free appraisals"}
                 </div>
               )}
             </div>
@@ -1092,7 +982,7 @@ Format every response with:
             <div className="paywall-card">
               <div className="paywall-icon">🎉</div>
               <div className="paywall-title">You're on a roll!</div>
-              <div className="paywall-sub">You've used your 3 free listings. Keep going!</div>
+              <div className="paywall-sub">You've used your 5 free listings. Keep going — you're building something real here.</div>
               <p className="paywall-tip">One good sale covers the cost of any plan.</p>
               <div className="paywall-options">
                 <div className="paywall-option paywall-option-pack" onClick={() => handleStripeCheckout("price_1TeguULr6wY7Jbr12bWM3VsZ", "payment")}>
@@ -1172,7 +1062,15 @@ Format every response with:
               )}
               <div className="actions-row">
                 {result.bucket !== "donate" && result.bucket !== "appraise" && (<button className="btn-ghost" onClick={copyListing} style={copied ? { borderColor: "#2d7a4f", color: "#2d7a4f" } : {}}>{copied ? "✓ Copied!" : "Copy Listing"}</button>)}
-                <button className="btn-ghost" onClick={saveAndAddAnother}>+ List Another Item</button>
+                <button className="btn-ghost" onClick={() => {
+                  if (credits <= 0 && !user) {
+                    setShowAuthModal(true); // non-logged-in used their 1 free → prompt sign in
+                  } else if (credits <= 0 && user && userPlan === "free") {
+                    setPhase("paywall"); // logged-in free user used all 5 → paywall
+                  } else {
+                    saveAndAddAnother();
+                  }
+                }}>+ List Another Item</button>
                 {savedListings.length > 0 && <button className="btn-ghost btn-summary" onClick={saveAndShowSummary}>View My Plan</button>}
               </div>
             </div>
@@ -1233,7 +1131,7 @@ Format every response with:
                   {savedListings.map((item, i) => <SavedCard key={item.id} item={item} index={i} user={user} onLoginRequired={() => setShowAuthModal(true)} onDelete={() => deleteListing(item.id)} onMarkSold={() => markSold(item.id)} />)}
                   {savedListings.length >= 1 && (
                     user && (userPlan === "admin" || userPlan === "monthly" || userPlan === "pack") ? (
-                      <SellingCoach listings={savedListings} sellerContext={sellerContext} />
+                      <SellingCoach listings={savedListings} sellerContext={sellerContext} lang={lang} />
                     ) : (
                       <div className="coach-locked">
                         <div className="coach-locked-icon">🎯</div>
@@ -1270,7 +1168,7 @@ Format every response with:
 }
 
 // ── Selling Coach (inline panel) ──────────────────────────────────────────
-function SellingCoach({ listings, sellerContext }) {
+function SellingCoach({ listings, sellerContext, lang }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -1283,7 +1181,8 @@ function SellingCoach({ listings, sellerContext }) {
     const listingSummary = activeListings.map(l =>
       `${l.result.itemName}: $${l.result.askingPrice}, ${l.result.bucket}, ${l.result.platform}`
     ).join("\n");
-    const systemPrompt = `You are a friendly selling coach. Seller: urgency=${sellerContext.urgency}, logistics=${sellerContext.logistics}, effort=${sellerContext.effort}. Active listings:\n${listingSummary}\nBe concise, warm, practical. Under 120 words.`;
+    const langName = lang === "pt" ? "Portuguese (Portugal)" : lang === "es" ? "Spanish" : "English";
+    const systemPrompt = `You are a friendly selling coach. Respond entirely in ${langName}. Seller: urgency=${sellerContext.urgency}, logistics=${sellerContext.logistics}, effort=${sellerContext.effort}. Active listings:\n${listingSummary}\nBe concise, warm, practical. Under 120 words.`;
     try {
       const response = await fetch("/api/claude", {
         method: "POST", headers: { "Content-Type": "application/json" },

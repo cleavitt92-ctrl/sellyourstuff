@@ -440,3 +440,8 @@ body { background: #f4f7f5; font-family: 'Inter', system-ui, sans-serif; color: 
   .export-btn { font-size: .78rem; padding: .4rem .7rem; }
   body, html { overflow-x: hidden; }
 }
+
+/* ── LANGUAGE SWITCHER ── */
+.lang-switcher { border: 1px solid #dde8e2; border-radius: 8px; padding: .35rem .5rem; font-size: .82rem; font-family: 'Inter',sans-serif; color: #1a2e22; background: #fff; cursor: pointer; outline: none; }
+.lang-switcher:hover { border-color: #1a7a4a; }
+@media (max-width: 768px) { .lang-switcher { font-size: .78rem; padding: .3rem .4rem; } }
